@@ -30,13 +30,15 @@ db.ready.then(async () => {
   }
   app.listen(PORT, () => {
     console.log(`🚀 Servidor en http://localhost:${PORT}`);
-    // Ping cada 10 minutos para evitar que Render duerma el servidor
     if (process.env.RENDER_EXTERNAL_URL) {
       setInterval(() => {
-        fetch(process.env.RENDER_EXTERNAL_URL + '/api/ping')
-          .catch(() => {});
+        fetch(process.env.RENDER_EXTERNAL_URL + '/api/ping').catch(() => {});
       }, 10 * 60 * 1000);
       console.log('🔄 Keep-alive activado');
     }
   });
+}).catch(err => {
+  console.error('❌ Error conectando a la base de datos:', err.message);
+  console.error('Verificá que DATABASE_URL esté configurada correctamente en las variables de entorno.');
+  process.exit(1);
 });
