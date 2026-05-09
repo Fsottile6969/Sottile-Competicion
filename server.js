@@ -10,6 +10,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.get('/api/ping', (req, res) => res.json({ ok: true }));
+
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/turnos', require('./routes/turnos'));
 app.use('/api/admin', require('./routes/admin'));
@@ -26,5 +28,15 @@ db.ready.then(async () => {
       .run('Administrador', process.env.ADMIN_EMAIL, bcrypt.hashSync(process.env.ADMIN_PASSWORD, 10), 'admin');
     console.log(`✅ Admin creado: ${process.env.ADMIN_EMAIL}`);
   }
-  app.listen(PORT, () => console.log(`🚀 Servidor en http://localhost:${PORT}`));
+  app.listen(PORT, () => {
+    console.log(`🚀 Servidor en http://localhost:${PORT}`);
+    // Ping cada 10 minutos para evitar que Render duerma el servidor
+    if (process.env.RENDER_EXTERNAL_URL) {
+      setInterval(() => {
+        fetch(process.env.RENDER_EXTERNAL_URL + '/api/ping')
+          .catch(() => {});
+      }, 10 * 60 * 1000);
+      console.log('🔄 Keep-alive activado');
+    }
+  });
 });

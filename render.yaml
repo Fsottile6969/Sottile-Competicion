@@ -34,3 +34,8 @@ services:
         value: "5491112345678"
       - key: TALLER_NOMBRE
         value: "Taller Mecánico"
+      - key: RENDER_EXTERNAL_URL
+        fromService:
+          name: taller-mecanico
+          type: web
+          property: host
