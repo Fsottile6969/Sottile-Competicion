@@ -1,38 +1,34 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../database');
+const { db } = require('../database');
 const { authMiddleware } = require('../middleware');
 const { enviarNotificacion } = require('../notifications');
 
-// Horarios disponibles
 const HORARIOS = ['08:00','09:00','10:00','11:00','12:00','14:00','15:00','16:00','17:00','18:00'];
 
-// Disponibilidad por fecha
-router.get('/disponibilidad/:fecha', authMiddleware, (req, res) => {
-  const { fecha } = req.params;
-  const ocupados = db.prepare(
+router.get('/disponibilidad/:fecha', authMiddleware, async (req, res) => {
+  const ocupados = await db.prepare(
     "SELECT hora FROM turnos WHERE fecha = ? AND estado != 'cancelado'"
-  ).all(fecha).map(t => t.hora);
-  const disponibles = HORARIOS.filter(h => !ocupados.includes(h));
-  res.json({ disponibles });
+  ).all(req.params.fecha);
+  const ocupadasHoras = ocupados.map(t => t.hora);
+  res.json({ disponibles: HORARIOS.filter(h => !ocupadasHoras.includes(h)) });
 });
 
-// Crear turno
 router.post('/', authMiddleware, async (req, res) => {
   const { vehiculo_id, fecha, hora, descripcion } = req.body;
   if (!vehiculo_id || !fecha || !hora || !descripcion)
     return res.status(400).json({ error: 'Campos requeridos' });
 
-  const ocupado = db.prepare(
+  const ocupado = await db.prepare(
     "SELECT id FROM turnos WHERE fecha = ? AND hora = ? AND estado != 'cancelado'"
   ).get(fecha, hora);
   if (ocupado) return res.status(409).json({ error: 'Horario no disponible' });
 
-  const result = db.prepare(
+  const result = await db.prepare(
     'INSERT INTO turnos (usuario_id, vehiculo_id, fecha, hora, descripcion) VALUES (?, ?, ?, ?, ?)'
   ).run(req.user.id, vehiculo_id, fecha, hora, descripcion);
 
-  const turno = db.prepare(`
+  const turno = await db.prepare(`
     SELECT t.*, v.marca, v.modelo, v.patente, u.nombre, u.email, u.telefono, u.push_subscription
     FROM turnos t
     JOIN vehiculos v ON t.vehiculo_id = v.id
@@ -40,7 +36,6 @@ router.post('/', authMiddleware, async (req, res) => {
     WHERE t.id = ?
   `).get(result.lastInsertRowid);
 
-  // Notificar al cliente
   if (turno.push_subscription) {
     await enviarNotificacion(JSON.parse(turno.push_subscription), {
       title: '✅ Turno confirmado',
@@ -49,8 +44,7 @@ router.post('/', authMiddleware, async (req, res) => {
     });
   }
 
-  // Notificar al admin
-  const admin = db.prepare("SELECT push_subscription FROM usuarios WHERE rol = 'admin'").get();
+  const admin = await db.prepare("SELECT push_subscription FROM usuarios WHERE rol = 'admin'").get();
   if (admin?.push_subscription) {
     await enviarNotificacion(JSON.parse(admin.push_subscription), {
       title: '🔔 Nuevo turno',
@@ -62,9 +56,8 @@ router.post('/', authMiddleware, async (req, res) => {
   res.json(turno);
 });
 
-// Mis turnos
-router.get('/mis-turnos', authMiddleware, (req, res) => {
-  const turnos = db.prepare(`
+router.get('/mis-turnos', authMiddleware, async (req, res) => {
+  const turnos = await db.prepare(`
     SELECT t.*, v.marca, v.modelo, v.patente
     FROM turnos t
     JOIN vehiculos v ON t.vehiculo_id = v.id
@@ -74,32 +67,29 @@ router.get('/mis-turnos', authMiddleware, (req, res) => {
   res.json(turnos);
 });
 
-// Cancelar turno (cliente)
-router.patch('/:id/cancelar', authMiddleware, (req, res) => {
-  const turno = db.prepare('SELECT * FROM turnos WHERE id = ? AND usuario_id = ?').get(req.params.id, req.user.id);
+router.patch('/:id/cancelar', authMiddleware, async (req, res) => {
+  const turno = await db.prepare('SELECT * FROM turnos WHERE id = ? AND usuario_id = ?').get(req.params.id, req.user.id);
   if (!turno) return res.status(404).json({ error: 'Turno no encontrado' });
-  db.prepare("UPDATE turnos SET estado = 'cancelado' WHERE id = ?").run(req.params.id);
+  await db.prepare("UPDATE turnos SET estado = 'cancelado' WHERE id = ?").run(req.params.id);
   res.json({ ok: true });
 });
 
-// Vehículos del usuario
-router.get('/vehiculos', authMiddleware, (req, res) => {
-  const vehiculos = db.prepare('SELECT * FROM vehiculos WHERE usuario_id = ?').all(req.user.id);
-  res.json(vehiculos);
+router.get('/vehiculos', authMiddleware, async (req, res) => {
+  res.json(await db.prepare('SELECT * FROM vehiculos WHERE usuario_id = ?').all(req.user.id));
 });
 
-router.post('/vehiculos', authMiddleware, (req, res) => {
+router.post('/vehiculos', authMiddleware, async (req, res) => {
   const { marca, modelo, anio, patente } = req.body;
   if (!marca || !modelo || !patente) return res.status(400).json({ error: 'Campos requeridos' });
 
-  const existe = db.prepare('SELECT id FROM vehiculos WHERE patente = ?').get(patente.toUpperCase());
+  const existe = await db.prepare('SELECT id FROM vehiculos WHERE patente = ?').get(patente.toUpperCase());
   if (existe) return res.status(409).json({ error: 'Patente ya registrada' });
 
-  const result = db.prepare(
+  const result = await db.prepare(
     'INSERT INTO vehiculos (usuario_id, marca, modelo, anio, patente) VALUES (?, ?, ?, ?, ?)'
   ).run(req.user.id, marca, modelo, anio || null, patente.toUpperCase());
 
-  res.json(db.prepare('SELECT * FROM vehiculos WHERE id = ?').get(result.lastInsertRowid));
+  res.json(await db.prepare('SELECT * FROM vehiculos WHERE id = ?').get(result.lastInsertRowid));
 });
 
 module.exports = router;

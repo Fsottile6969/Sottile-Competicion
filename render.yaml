@@ -1,0 +1,36 @@
+databases:
+  - name: taller-db
+    databaseName: taller
+    user: taller
+    plan: free
+
+services:
+  - type: web
+    name: taller-mecanico
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: taller-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        value: admin@taller.com
+      - key: ADMIN_PASSWORD
+        value: admin123
+      - key: VAPID_PUBLIC_KEY
+        value: BKD9-Xk7lp0ZeZwidkxG7mxO6bo_hByTwFbf9FRdxWeQBOgjfSRMlQlCrtRk0wR0s0po2njt2GlEp_40c7vBAEA
+      - key: VAPID_PRIVATE_KEY
+        value: VKsOcWVxPCMXvspQix7ibFLEx3CQaDA23JJlpsctqYk
+      - key: VAPID_EMAIL
+        value: mailto:admin@taller.com
+      - key: TALLER_WHATSAPP
+        value: "5491112345678"
+      - key: TALLER_NOMBRE
+        value: "Taller Mecánico"

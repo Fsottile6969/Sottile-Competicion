@@ -1,123 +1,81 @@
-const initSqlJs = require('sql.js');
-const fs = require('fs');
-const path = require('path');
+const { Pool } = require('pg');
 
-const DB_PATH = path.join(__dirname, 'taller.db');
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
 
-let _db = null;
+const ready = pool.query(`
+  CREATE TABLE IF NOT EXISTS usuarios (
+    id SERIAL PRIMARY KEY,
+    nombre TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password TEXT,
+    telefono TEXT,
+    google_id TEXT UNIQUE,
+    rol TEXT DEFAULT 'cliente',
+    push_subscription TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS vehiculos (
+    id SERIAL PRIMARY KEY,
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+    marca TEXT NOT NULL,
+    modelo TEXT NOT NULL,
+    anio INTEGER,
+    patente TEXT UNIQUE NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS turnos (
+    id SERIAL PRIMARY KEY,
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+    vehiculo_id INTEGER NOT NULL REFERENCES vehiculos(id),
+    fecha TEXT NOT NULL,
+    hora TEXT NOT NULL,
+    descripcion TEXT NOT NULL,
+    estado TEXT DEFAULT 'pendiente',
+    notas_admin TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS trabajos (
+    id SERIAL PRIMARY KEY,
+    turno_id INTEGER NOT NULL REFERENCES turnos(id),
+    descripcion TEXT NOT NULL,
+    costo NUMERIC DEFAULT 0,
+    estado TEXT DEFAULT 'en_proceso',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`);
 
-function save() {
-  const data = _db.export();
-  fs.writeFileSync(DB_PATH, Buffer.from(data));
+// Convierte "WHERE campo = ?" a "WHERE campo = $1" automáticamente
+function toPositional(sql) {
+  let i = 0;
+  return sql.replace(/\?/g, () => `$${++i}`);
 }
 
-async function init() {
-  const SQL = await initSqlJs();
-  if (fs.existsSync(DB_PATH)) {
-    _db = new SQL.Database(fs.readFileSync(DB_PATH));
-  } else {
-    _db = new SQL.Database();
-  }
-
-  _db.run(`PRAGMA foreign_keys = ON;`);
-
-  _db.run(`
-    CREATE TABLE IF NOT EXISTS usuarios (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nombre TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      password TEXT,
-      telefono TEXT,
-      google_id TEXT UNIQUE,
-      rol TEXT DEFAULT 'cliente',
-      push_subscription TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS vehiculos (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      usuario_id INTEGER NOT NULL,
-      marca TEXT NOT NULL,
-      modelo TEXT NOT NULL,
-      anio INTEGER,
-      patente TEXT UNIQUE NOT NULL,
-      FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
-    );
-    CREATE TABLE IF NOT EXISTS turnos (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      usuario_id INTEGER NOT NULL,
-      vehiculo_id INTEGER NOT NULL,
-      fecha TEXT NOT NULL,
-      hora TEXT NOT NULL,
-      descripcion TEXT NOT NULL,
-      estado TEXT DEFAULT 'pendiente',
-      notas_admin TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
-      FOREIGN KEY (vehiculo_id) REFERENCES vehiculos(id)
-    );
-    CREATE TABLE IF NOT EXISTS trabajos (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      turno_id INTEGER NOT NULL,
-      descripcion TEXT NOT NULL,
-      costo REAL DEFAULT 0,
-      estado TEXT DEFAULT 'en_proceso',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (turno_id) REFERENCES turnos(id)
-    );
-  `);
-
-  save();
-  return _db;
-}
-
-// Wrapper sincrónico compatible con la API anterior
 const db = {
-  _ready: false,
-  _instance: null,
+  ready,
 
   prepare(sql) {
-    const instance = this._instance;
+    const pgSql = toPositional(sql);
     return {
-      run(...params) {
-        instance.run(sql, params);
-        save();
-        // Devolver lastInsertRowid
-        const res = instance.exec('SELECT last_insert_rowid() as id');
-        return { lastInsertRowid: res[0]?.values[0][0] };
+      async run(...params) {
+        const res = await pool.query(pgSql + ' RETURNING id', params);
+        return { lastInsertRowid: res.rows[0]?.id };
       },
-      get(...params) {
-        const stmt = instance.prepare(sql);
-        stmt.bind(params);
-        if (stmt.step()) {
-          const row = stmt.getAsObject();
-          stmt.free();
-          return row;
-        }
-        stmt.free();
-        return undefined;
+      async get(...params) {
+        const res = await pool.query(pgSql, params);
+        return res.rows[0];
       },
-      all(...params) {
-        const stmt = instance.prepare(sql);
-        stmt.bind(params);
-        const rows = [];
-        while (stmt.step()) rows.push(stmt.getAsObject());
-        stmt.free();
-        return rows;
+      async all(...params) {
+        const res = await pool.query(pgSql, params);
+        return res.rows;
       }
     };
   },
 
-  exec(sql) {
-    this._instance.run(sql);
-    save();
+  async exec(sql) {
+    await pool.query(sql);
   }
 };
 
-// Inicializar y exportar promesa
-const ready = init().then(instance => {
-  db._instance = instance;
-  db._ready = true;
-});
-
-db.ready = ready;
-module.exports = db;
+module.exports = { db, pool };
