@@ -1,0 +1,4 @@
+node_modules/
+taller.db
+.env
+server.log

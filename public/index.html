@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Taller Mecánico - Acceso</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <h1>🔧 Taller<span>Pro</span></h1>
+        <p>Sistema de gestión de turnos</p>
+      </div>
+
+      <div id="alertBox"></div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" onclick="switchTab('login')">Iniciar sesión</button>
+        <button class="auth-tab" onclick="switchTab('register')">Registrarse</button>
+      </div>
+
+      <!-- LOGIN -->
+      <div id="loginForm">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" id="loginEmail" class="form-control" placeholder="tu@email.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Contraseña</label>
+          <input type="password" id="loginPassword" class="form-control" placeholder="••••••••">
+        </div>
+        <button class="btn btn-primary btn-block" onclick="login()">
+          <span id="loginBtnText">Ingresar</span>
+        </button>
+
+        <div class="divider">o continuá con</div>
+
+        <button class="btn btn-google" onclick="loginGoogle()">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="Google">
+          Continuar con Google
+        </button>
+      </div>
+
+      <!-- REGISTER -->
+      <div id="registerForm" style="display:none">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Nombre completo</label>
+            <input type="text" id="regNombre" class="form-control" placeholder="Juan Pérez">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Teléfono</label>
+            <input type="tel" id="regTelefono" class="form-control" placeholder="+54 9 11...">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" id="regEmail" class="form-control" placeholder="tu@email.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Contraseña</label>
+          <input type="password" id="regPassword" class="form-control" placeholder="Mínimo 6 caracteres">
+        </div>
+        <button class="btn btn-primary btn-block" onclick="register()">Crear cuenta</button>
+
+        <div class="divider">o continuá con</div>
+
+        <button class="btn btn-google" onclick="loginGoogle()">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="Google">
+          Continuar con Google
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script>
+    const API = '/api';
+
+    function switchTab(tab) {
+      document.querySelectorAll('.auth-tab').forEach((t, i) => t.classList.toggle('active', (i === 0) === (tab === 'login')));
+      document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+      document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+      clearAlert();
+    }
+
+    function showAlert(msg, type = 'error') {
+      document.getElementById('alertBox').innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+    }
+    function clearAlert() { document.getElementById('alertBox').innerHTML = ''; }
+
+    function saveSession(data) {
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      window.location.href = data.user.rol === 'admin' ? '/admin.html' : '/cliente.html';
+    }
+
+    async function login() {
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      if (!email || !password) return showAlert('Completá todos los campos');
+
+      const res = await fetch(`${API}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) return showAlert(data.error);
+      saveSession(data);
+    }
+
+    async function register() {
+      const nombre = document.getElementById('regNombre').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const telefono = document.getElementById('regTelefono').value.trim();
+      if (!nombre || !email || !password) return showAlert('Completá los campos obligatorios');
+      if (password.length < 6) return showAlert('La contraseña debe tener al menos 6 caracteres');
+
+      const res = await fetch(`${API}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre, email, password, telefono })
+      });
+      const data = await res.json();
+      if (!res.ok) return showAlert(data.error);
+      saveSession(data);
+    }
+
+    function loginGoogle() {
+      google.accounts.id.initialize({
+        client_id: 'TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com',
+        callback: async (response) => {
+          const payload = JSON.parse(atob(response.credential.split('.')[1]));
+          const res = await fetch(`${API}/auth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ google_id: payload.sub, email: payload.email, nombre: payload.name })
+          });
+          const data = await res.json();
+          if (!res.ok) return showAlert(data.error);
+          saveSession(data);
+        }
+      });
+      google.accounts.id.prompt();
+    }
+
+    // Redirigir si ya está logueado
+    if (localStorage.getItem('token')) {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      window.location.href = user.rol === 'admin' ? '/admin.html' : '/cliente.html';
+    }
+
+    // Enter para login
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const isLogin = document.getElementById('loginForm').style.display !== 'none';
+        isLogin ? login() : register();
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mi Panel - Taller Mecánico</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">🔧 Taller<span>Pro</span></div>
+    <div class="navbar-actions">
+      <span class="navbar-user" id="navUser"></span>
+      <button class="btn-logout" onclick="logout()">Salir</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab('turnos')">📅 Mis Turnos</button>
+      <button class="tab-btn" onclick="showTab('reservar')">➕ Reservar Turno</button>
+      <button class="tab-btn" onclick="showTab('vehiculos')">🚗 Mis Vehículos</button>
+    </div>
+
+    <!-- MIS TURNOS -->
+    <div id="tab-turnos" class="tab-content active">
+      <div id="turnosList"></div>
+    </div>
+
+    <!-- RESERVAR TURNO -->
+    <div id="tab-reservar" class="tab-content">
+      <div class="card">
+        <div class="card-title">📅 Nueva Reserva</div>
+
+        <div class="form-group">
+          <label class="form-label">Vehículo</label>
+          <select id="resVehiculo" class="form-control">
+            <option value="">Seleccioná un vehículo</option>
+          </select>
+          <button class="btn btn-outline btn-sm" style="margin-top:0.5rem" onclick="openModal('modalVehiculo')">+ Agregar vehículo</button>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Fecha</label>
+            <input type="date" id="resFecha" class="form-control" onchange="cargarHorarios()">
+          </div>
+        </div>
+
+        <div class="form-group" id="horariosContainer" style="display:none">
+          <label class="form-label">Horario disponible</label>
+          <div class="horarios-grid" id="horariosGrid"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Descripción del problema</label>
+          <textarea id="resDescripcion" class="form-control" rows="3" placeholder="Ej: Cambio de aceite, revisión de frenos..."></textarea>
+        </div>
+
+        <button class="btn btn-primary" onclick="reservarTurno()">Confirmar reserva</button>
+      </div>
+    </div>
+
+    <!-- MIS VEHÍCULOS -->
+    <div id="tab-vehiculos" class="tab-content">
+      <div style="display:flex; justify-content:flex-end; margin-bottom:1rem">
+        <button class="btn btn-primary" onclick="openModal('modalVehiculo')">+ Agregar vehículo</button>
+      </div>
+      <div id="vehiculosList"></div>
+    </div>
+  </div>
+
+  <!-- MODAL VEHÍCULO -->
+  <div class="modal-overlay" id="modalVehiculo">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">🚗 Agregar Vehículo</span>
+        <button class="modal-close" onclick="closeModal('modalVehiculo')">×</button>
+      </div>
+      <div id="vehiculoAlert"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Marca</label>
+          <input type="text" id="vMarca" class="form-control" placeholder="Toyota">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Modelo</label>
+          <input type="text" id="vModelo" class="form-control" placeholder="Corolla">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Año</label>
+          <input type="number" id="vAnio" class="form-control" placeholder="2020" min="1990" max="2030">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Patente</label>
+          <input type="text" id="vPatente" class="form-control" placeholder="AB123CD" style="text-transform:uppercase">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="agregarVehiculo()">Guardar vehículo</button>
+    </div>
+  </div>
+
+  <script>
+    const API = '/api';
+    const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    let horaSeleccionada = null;
+
+    if (!token) window.location.href = '/';
+    if (user.rol === 'admin') window.location.href = '/admin.html';
+
+    document.getElementById('navUser').textContent = `Hola, ${user.nombre}`;
+
+    const headers = () => ({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` });
+
+    async function apiFetch(url, opts = {}) {
+      const res = await fetch(API + url, { ...opts, headers: headers() });
+      if (res.status === 401) { logout(); return null; }
+      return res.json();
+    }
+
+    function showTab(name) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(`tab-${name}`).classList.add('active');
+      event.target.classList.add('active');
+      if (name === 'turnos') cargarTurnos();
+      if (name === 'vehiculos') cargarVehiculos();
+      if (name === 'reservar') cargarVehiculosSelect();
+    }
+
+    function openModal(id) { document.getElementById(id).classList.add('open'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+    function logout() {
+      localStorage.clear();
+      window.location.href = '/';
+    }
+
+    // ── TURNOS ──
+    async function cargarTurnos() {
+      const turnos = await apiFetch('/turnos/mis-turnos');
+      if (!turnos) return;
+      const container = document.getElementById('turnosList');
+      if (!turnos.length) {
+        container.innerHTML = `<div class="empty-state"><div class="icon">📅</div><p>No tenés turnos registrados.<br>¡Reservá tu primer turno!</p></div>`;
+        return;
+      }
+      container.innerHTML = turnos.map(t => `
+        <div class="turno-card ${t.estado}">
+          <div class="turno-info">
+            <h4>${t.marca} ${t.modelo} — ${t.patente}</h4>
+            <p>📅 ${formatFecha(t.fecha)} a las ${t.hora}</p>
+            <p>📝 ${t.descripcion}</p>
+            ${t.notas_admin ? `<p style="color:#457b9d;margin-top:0.3rem">💬 Taller: ${t.notas_admin}</p>` : ''}
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.5rem">
+            <span class="badge badge-${t.estado}">${estadoLabel(t.estado)}</span>
+            ${t.estado === 'pendiente' ? `<button class="btn btn-danger btn-sm" onclick="cancelarTurno(${t.id})">Cancelar</button>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function cancelarTurno(id) {
+      if (!confirm('¿Cancelar este turno?')) return;
+      await apiFetch(`/turnos/${id}/cancelar`, { method: 'PATCH' });
+      cargarTurnos();
+    }
+
+    // ── RESERVAR ──
+    async function cargarVehiculosSelect() {
+      const vehiculos = await apiFetch('/turnos/vehiculos');
+      if (!vehiculos) return;
+      const sel = document.getElementById('resVehiculo');
+      sel.innerHTML = '<option value="">Seleccioná un vehículo</option>' +
+        vehiculos.map(v => `<option value="${v.id}">${v.marca} ${v.modelo} (${v.patente})</option>`).join('');
+
+      // Fecha mínima = mañana
+      const manana = new Date();
+      manana.setDate(manana.getDate() + 1);
+      document.getElementById('resFecha').min = manana.toISOString().split('T')[0];
+    }
+
+    async function cargarHorarios() {
+      const fecha = document.getElementById('resFecha').value;
+      if (!fecha) return;
+      const data = await apiFetch(`/turnos/disponibilidad/${fecha}`);
+      if (!data) return;
+
+      const todosHorarios = ['08:00','09:00','10:00','11:00','12:00','14:00','15:00','16:00','17:00','18:00'];
+      horaSeleccionada = null;
+      document.getElementById('horariosContainer').style.display = 'block';
+      document.getElementById('horariosGrid').innerHTML = todosHorarios.map(h => {
+        const disponible = data.disponibles.includes(h);
+        return `<button class="horario-btn ${disponible ? '' : 'ocupado'}" 
+          onclick="${disponible ? `seleccionarHora('${h}', this)` : ''}">${h}</button>`;
+      }).join('');
+    }
+
+    function seleccionarHora(hora, btn) {
+      document.querySelectorAll('.horario-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      horaSeleccionada = hora;
+    }
+
+    async function reservarTurno() {
+      const vehiculo_id = document.getElementById('resVehiculo').value;
+      const fecha = document.getElementById('resFecha').value;
+      const descripcion = document.getElementById('resDescripcion').value.trim();
+
+      if (!vehiculo_id) return alert('Seleccioná un vehículo');
+      if (!fecha) return alert('Seleccioná una fecha');
+      if (!horaSeleccionada) return alert('Seleccioná un horario');
+      if (!descripcion) return alert('Describí el problema');
+
+      const res = await apiFetch('/turnos', {
+        method: 'POST',
+        body: JSON.stringify({ vehiculo_id, fecha, hora: horaSeleccionada, descripcion })
+      });
+      if (res?.id) {
+        alert('✅ ¡Turno reservado con éxito!');
+        showTab('turnos');
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.querySelectorAll('.tab-btn')[1].classList.remove('active');
+      }
+    }
+
+    // ── VEHÍCULOS ──
+    async function cargarVehiculos() {
+      const vehiculos = await apiFetch('/turnos/vehiculos');
+      if (!vehiculos) return;
+      const container = document.getElementById('vehiculosList');
+      if (!vehiculos.length) {
+        container.innerHTML = `<div class="empty-state"><div class="icon">🚗</div><p>No tenés vehículos registrados.</p></div>`;
+        return;
+      }
+      container.innerHTML = `
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Marca</th><th>Modelo</th><th>Año</th><th>Patente</th></tr></thead>
+            <tbody>${vehiculos.map(v => `
+              <tr>
+                <td>${v.marca}</td>
+                <td>${v.modelo}</td>
+                <td>${v.anio || '-'}</td>
+                <td><strong>${v.patente}</strong></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    async function agregarVehiculo() {
+      const marca = document.getElementById('vMarca').value.trim();
+      const modelo = document.getElementById('vModelo').value.trim();
+      const anio = document.getElementById('vAnio').value;
+      const patente = document.getElementById('vPatente').value.trim().toUpperCase();
+
+      if (!marca || !modelo || !patente) {
+        document.getElementById('vehiculoAlert').innerHTML = '<div class="alert alert-error">Completá los campos obligatorios</div>';
+        return;
+      }
+
+      const res = await apiFetch('/turnos/vehiculos', {
+        method: 'POST',
+        body: JSON.stringify({ marca, modelo, anio, patente })
+      });
+
+      if (res?.error) {
+        document.getElementById('vehiculoAlert').innerHTML = `<div class="alert alert-error">${res.error}</div>`;
+        return;
+      }
+
+      closeModal('modalVehiculo');
+      document.getElementById('vehiculoAlert').innerHTML = '';
+      ['vMarca','vModelo','vAnio','vPatente'].forEach(id => document.getElementById(id).value = '');
+      cargarVehiculos();
+      cargarVehiculosSelect();
+    }
+
+    // ── PUSH NOTIFICATIONS ──
+    async function registrarPush() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      try {
+        const reg = await navigator.serviceWorker.register('/sw.js');
+        const perm = await Notification.requestPermission();
+        if (perm !== 'granted') return;
+
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array('BKD9-Xk7lp0ZeZwidkxG7mxO6bo_hByTwFbf9FRdxWeQBOgjfSRMlQlCrtRk0wR0s0po2njt2GlEp_40c7vBAEA')
+        });
+
+        await fetch(`${API}/auth/push-subscription`, {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ subscription: sub })
+        });
+      } catch (e) { console.log('Push no disponible:', e.message); }
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+    }
+
+    function formatFecha(fecha) {
+      const [y, m, d] = fecha.split('-');
+      return `${d}/${m}/${y}`;
+    }
+
+    function estadoLabel(estado) {
+      const labels = { pendiente: 'Pendiente', en_proceso: 'En proceso', terminado: 'Terminado', cancelado: 'Cancelado' };
+      return labels[estado] || estado;
+    }
+
+    // Init
+    cargarTurnos();
+    registrarPush();
+  </script>
+</body>
+</html>

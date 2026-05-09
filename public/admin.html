@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Admin - Taller Mecánico</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">🔧 Taller<span>Pro</span> <small style="font-size:0.7rem;opacity:0.7;margin-left:0.5rem">Admin</small></div>
+    <div class="navbar-actions">
+      <span class="navbar-user" id="navUser"></span>
+      <button class="btn-logout" onclick="logout()">Salir</button>
+    </div>
+  </nav>
+
+  <div class="admin-layout">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-item active" onclick="showSection('dashboard', this)">
+        <span class="sidebar-icon">📊</span> Dashboard
+      </div>
+      <div class="sidebar-item" onclick="showSection('turnos', this)">
+        <span class="sidebar-icon">📅</span> Turnos
+      </div>
+      <div class="sidebar-item" onclick="showSection('clientes', this)">
+        <span class="sidebar-icon">👥</span> Clientes
+      </div>
+    </aside>
+
+    <!-- CONTENIDO -->
+    <main class="main-content">
+
+      <!-- DASHBOARD -->
+      <div id="section-dashboard">
+        <div class="page-title">📊 Dashboard</div>
+        <div class="stats-grid">
+          <div class="stat-card warning">
+            <div class="stat-number" id="statHoy">-</div>
+            <div class="stat-label">Turnos hoy</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="statPendientes">-</div>
+            <div class="stat-label">Pendientes</div>
+          </div>
+          <div class="stat-card info">
+            <div class="stat-number" id="statEnProceso">-</div>
+            <div class="stat-label">En proceso</div>
+          </div>
+          <div class="stat-card success">
+            <div class="stat-number" id="statTerminados">-</div>
+            <div class="stat-label">Terminados</div>
+          </div>
+          <div class="stat-card secondary">
+            <div class="stat-number" id="statClientes">-</div>
+            <div class="stat-label">Clientes</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📅 Turnos de hoy</div>
+          <div id="turnosHoyList"></div>
+        </div>
+      </div>
+
+      <!-- TURNOS -->
+      <div id="section-turnos" style="display:none">
+        <div class="page-title">📅 Gestión de Turnos</div>
+        <div class="filter-bar">
+          <div class="form-group">
+            <label class="form-label">Filtrar por fecha</label>
+            <input type="date" id="filtroFecha" class="form-control" onchange="cargarTurnos()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estado</label>
+            <select id="filtroEstado" class="form-control" onchange="cargarTurnos()">
+              <option value="">Todos</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="en_proceso">En proceso</option>
+              <option value="terminado">Terminado</option>
+              <option value="cancelado">Cancelado</option>
+            </select>
+          </div>
+          <button class="btn btn-outline" onclick="limpiarFiltros()">Limpiar</button>
+        </div>
+        <div id="turnosAdminList"></div>
+      </div>
+
+      <!-- CLIENTES -->
+      <div id="section-clientes" style="display:none">
+        <div class="page-title">👥 Clientes</div>
+        <div id="clientesList"></div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- MODAL DETALLE TURNO -->
+  <div class="modal-overlay" id="modalTurno">
+    <div class="modal" style="max-width:620px">
+      <div class="modal-header">
+        <span class="modal-title" id="modalTurnoTitle">Detalle del Turno</span>
+        <button class="modal-close" onclick="closeModal('modalTurno')">×</button>
+      </div>
+
+      <div id="modalTurnoInfo" style="margin-bottom:1.5rem;padding:1rem;background:#f8f9fa;border-radius:8px;font-size:0.9rem;line-height:1.8"></div>
+
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1.5rem" id="modalAcciones"></div>
+
+      <div class="form-group">
+        <label class="form-label">Notas para el cliente</label>
+        <textarea id="notasAdmin" class="form-control" rows="2" placeholder="Ej: Necesitamos el vehículo 2 días más..."></textarea>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="guardarNotas()">Guardar notas</button>
+
+      <hr style="margin:1.5rem 0;border-color:#dee2e6">
+
+      <div class="card-title">🔧 Trabajos realizados</div>
+      <div id="trabajosList" style="margin-bottom:1rem"></div>
+
+      <div style="display:flex;gap:0.5rem;align-items:flex-end">
+        <div class="form-group" style="flex:1;margin:0">
+          <input type="text" id="nuevoTrabajo" class="form-control" placeholder="Descripción del trabajo">
+        </div>
+        <div class="form-group" style="width:120px;margin:0">
+          <input type="number" id="nuevoCosto" class="form-control" placeholder="Costo $" min="0">
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="agregarTrabajo()">+ Agregar</button>
+      </div>
+
+      <div id="totalCosto" style="text-align:right;font-weight:700;font-size:1.1rem;margin-top:1rem;color:#1d3557"></div>
+    </div>
+  </div>
+
+  <script>
+    const API = '/api';
+    const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    let turnoActual = null;
+
+    if (!token || user.rol !== 'admin') window.location.href = '/';
+
+    document.getElementById('navUser').textContent = user.nombre;
+
+    const headers = () => ({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` });
+
+    async function apiFetch(url, opts = {}) {
+      const res = await fetch(API + url, { ...opts, headers: headers() });
+      if (res.status === 401) { logout(); return null; }
+      return res.json();
+    }
+
+    function showSection(name, el) {
+      document.querySelectorAll('[id^="section-"]').forEach(s => s.style.display = 'none');
+      document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
+      document.getElementById(`section-${name}`).style.display = 'block';
+      el.classList.add('active');
+      if (name === 'dashboard') cargarDashboard();
+      if (name === 'turnos') cargarTurnos();
+      if (name === 'clientes') cargarClientes();
+    }
+
+    function openModal(id) { document.getElementById(id).classList.add('open'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+    function logout() { localStorage.clear(); window.location.href = '/'; }
+
+    // ── DASHBOARD ──
+    async function cargarDashboard() {
+      const stats = await apiFetch('/admin/stats');
+      if (!stats) return;
+      document.getElementById('statHoy').textContent = stats.turnosHoy;
+      document.getElementById('statPendientes').textContent = stats.pendientes;
+      document.getElementById('statEnProceso').textContent = stats.enProceso;
+      document.getElementById('statTerminados').textContent = stats.terminados;
+      document.getElementById('statClientes').textContent = stats.clientes;
+
+      const hoy = new Date().toISOString().split('T')[0];
+      const turnos = await apiFetch(`/admin/turnos?fecha=${hoy}`);
+      renderTurnosCompacto(turnos || [], 'turnosHoyList');
+    }
+
+    function renderTurnosCompacto(turnos, containerId) {
+      const container = document.getElementById(containerId);
+      if (!turnos.length) {
+        container.innerHTML = `<div class="empty-state" style="padding:1.5rem"><div class="icon">📅</div><p>Sin turnos</p></div>`;
+        return;
+      }
+      container.innerHTML = `
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Hora</th><th>Cliente</th><th>Vehículo</th><th>Descripción</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <tbody>${turnos.map(t => `
+              <tr>
+                <td><strong>${t.hora}</strong></td>
+                <td>${t.nombre}<br><small style="color:#6c757d">${t.telefono || t.email}</small></td>
+                <td>${t.marca} ${t.modelo}<br><small><strong>${t.patente}</strong></small></td>
+                <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.descripcion}</td>
+                <td><span class="badge badge-${t.estado}">${estadoLabel(t.estado)}</span></td>
+                <td>
+                  <div class="actions">
+                    <button class="btn btn-secondary btn-sm" onclick="abrirDetalle(${t.id})">Ver</button>
+                    <a class="btn btn-whatsapp btn-sm" href="${whatsappLink(t)}" target="_blank">WhatsApp</a>
+                  </div>
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    // ── TURNOS ──
+    async function cargarTurnos() {
+      const fecha = document.getElementById('filtroFecha').value;
+      const estado = document.getElementById('filtroEstado').value;
+      let url = '/admin/turnos?';
+      if (fecha) url += `fecha=${fecha}&`;
+      if (estado) url += `estado=${estado}`;
+      const turnos = await apiFetch(url);
+      renderTurnosCompacto(turnos || [], 'turnosAdminList');
+    }
+
+    function limpiarFiltros() {
+      document.getElementById('filtroFecha').value = '';
+      document.getElementById('filtroEstado').value = '';
+      cargarTurnos();
+    }
+
+    // ── DETALLE TURNO ──
+    async function abrirDetalle(id) {
+      const turnos = await apiFetch('/admin/turnos');
+      turnoActual = turnos.find(t => t.id === id);
+      if (!turnoActual) return;
+
+      document.getElementById('modalTurnoTitle').textContent = `Turno #${id} — ${turnoActual.patente}`;
+      document.getElementById('modalTurnoInfo').innerHTML = `
+        <strong>👤 Cliente:</strong> ${turnoActual.nombre}<br>
+        <strong>📧 Email:</strong> ${turnoActual.email}<br>
+        <strong>📱 Teléfono:</strong> ${turnoActual.telefono || 'No registrado'}<br>
+        <strong>🚗 Vehículo:</strong> ${turnoActual.marca} ${turnoActual.modelo} (${turnoActual.patente})<br>
+        <strong>📅 Fecha:</strong> ${formatFecha(turnoActual.fecha)} a las ${turnoActual.hora}<br>
+        <strong>📝 Problema:</strong> ${turnoActual.descripcion}
+      `;
+
+      document.getElementById('notasAdmin').value = turnoActual.notas_admin || '';
+
+      const acciones = document.getElementById('modalAcciones');
+      const estados = [
+        { val: 'pendiente', label: '⏳ Pendiente', cls: 'btn-warning' },
+        { val: 'en_proceso', label: '🔧 En proceso', cls: 'btn-secondary' },
+        { val: 'terminado', label: '✅ Terminado', cls: 'btn-success' },
+        { val: 'cancelado', label: '❌ Cancelar', cls: 'btn-danger' },
+      ];
+      acciones.innerHTML = estados.map(e => `
+        <button class="btn ${e.cls} btn-sm ${turnoActual.estado === e.val ? 'active' : ''}" 
+          onclick="cambiarEstado('${e.val}')" 
+          style="${turnoActual.estado === e.val ? 'outline:3px solid #000;outline-offset:2px' : ''}">
+          ${e.label}
+        </button>`).join('') +
+        `<a class="btn btn-whatsapp btn-sm" href="${whatsappLink(turnoActual)}" target="_blank">💬 WhatsApp</a>`;
+
+      await cargarTrabajos();
+      openModal('modalTurno');
+    }
+
+    async function cambiarEstado(estado) {
+      await apiFetch(`/admin/turnos/${turnoActual.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ estado })
+      });
+      turnoActual.estado = estado;
+      abrirDetalle(turnoActual.id);
+      cargarDashboard();
+    }
+
+    async function guardarNotas() {
+      const notas_admin = document.getElementById('notasAdmin').value;
+      await apiFetch(`/admin/turnos/${turnoActual.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ notas_admin })
+      });
+      alert('✅ Notas guardadas');
+    }
+
+    // ── TRABAJOS ──
+    async function cargarTrabajos() {
+      const trabajos = await apiFetch(`/admin/turnos/${turnoActual.id}/trabajos`);
+      const container = document.getElementById('trabajosList');
+      if (!trabajos?.length) {
+        container.innerHTML = '<p style="color:#6c757d;font-size:0.9rem">Sin trabajos registrados</p>';
+        document.getElementById('totalCosto').textContent = '';
+        return;
+      }
+      container.innerHTML = trabajos.map(t => `
+        <div class="trabajo-item">
+          <div>
+            <strong>${t.descripcion}</strong>
+            <span class="badge badge-${t.estado}" style="margin-left:0.5rem">${estadoLabel(t.estado)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.5rem">
+            <strong>$${Number(t.costo).toLocaleString('es-AR')}</strong>
+            <button class="btn btn-danger btn-sm" onclick="eliminarTrabajo(${t.id})">✕</button>
+          </div>
+        </div>`).join('');
+
+      const total = trabajos.reduce((s, t) => s + Number(t.costo), 0);
+      document.getElementById('totalCosto').textContent = `Total: $${total.toLocaleString('es-AR')}`;
+    }
+
+    async function agregarTrabajo() {
+      const descripcion = document.getElementById('nuevoTrabajo').value.trim();
+      const costo = document.getElementById('nuevoCosto').value;
+      if (!descripcion) return alert('Ingresá una descripción');
+
+      await apiFetch(`/admin/turnos/${turnoActual.id}/trabajos`, {
+        method: 'POST',
+        body: JSON.stringify({ descripcion, costo: Number(costo) || 0 })
+      });
+      document.getElementById('nuevoTrabajo').value = '';
+      document.getElementById('nuevoCosto').value = '';
+      cargarTrabajos();
+    }
+
+    async function eliminarTrabajo(id) {
+      if (!confirm('¿Eliminar este trabajo?')) return;
+      await apiFetch(`/admin/trabajos/${id}`, { method: 'DELETE' });
+      cargarTrabajos();
+    }
+
+    // ── CLIENTES ──
+    async function cargarClientes() {
+      const clientes = await apiFetch('/admin/clientes');
+      if (!clientes) return;
+      const container = document.getElementById('clientesList');
+      if (!clientes.length) {
+        container.innerHTML = `<div class="empty-state"><div class="icon">👥</div><p>Sin clientes registrados</p></div>`;
+        return;
+      }
+      container.innerHTML = `
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Registrado</th><th>Acciones</th></tr></thead>
+            <tbody>${clientes.map(c => `
+              <tr>
+                <td>${c.nombre}</td>
+                <td>${c.email}</td>
+                <td>${c.telefono || '-'}</td>
+                <td>${formatFecha(c.created_at?.split('T')[0] || c.created_at?.split(' ')[0])}</td>
+                <td>
+                  ${c.telefono ? `<a class="btn btn-whatsapp btn-sm" href="https://wa.me/${limpiarTel(c.telefono)}?text=${encodeURIComponent('Hola ' + c.nombre + ', te contactamos desde el taller.')}" target="_blank">💬 WhatsApp</a>` : '-'}
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    // ── HELPERS ──
+    function whatsappLink(turno) {
+      const tel = limpiarTel(turno.telefono);
+      if (!tel) return '#';
+      const msg = `Hola ${turno.nombre}! Te contactamos desde el taller sobre tu ${turno.marca} ${turno.modelo} (${turno.patente}) con turno el ${formatFecha(turno.fecha)} a las ${turno.hora}.`;
+      return `https://wa.me/${tel}?text=${encodeURIComponent(msg)}`;
+    }
+
+    function limpiarTel(tel) {
+      if (!tel) return '';
+      return tel.replace(/\D/g, '');
+    }
+
+    function formatFecha(fecha) {
+      if (!fecha) return '-';
+      const [y, m, d] = fecha.split('-');
+      return `${d}/${m}/${y}`;
+    }
+
+    function estadoLabel(estado) {
+      const labels = { pendiente: 'Pendiente', en_proceso: 'En proceso', terminado: 'Terminado', cancelado: 'Cancelado' };
+      return labels[estado] || estado;
+    }
+
+    // ── PUSH ADMIN ──
+    async function registrarPushAdmin() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      try {
+        const reg = await navigator.serviceWorker.register('/sw.js');
+        const perm = await Notification.requestPermission();
+        if (perm !== 'granted') return;
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array('BKD9-Xk7lp0ZeZwidkxG7mxO6bo_hByTwFbf9FRdxWeQBOgjfSRMlQlCrtRk0wR0s0po2njt2GlEp_40c7vBAEA')
+        });
+        await fetch(`${API}/auth/push-subscription`, {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ subscription: sub })
+        });
+      } catch (e) { console.log('Push no disponible:', e.message); }
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+    }
+
+    // Init
+    cargarDashboard();
+    registrarPushAdmin();
+  </script>
+</body>
+</html>
