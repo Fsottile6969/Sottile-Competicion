@@ -16,6 +16,8 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/turnos', require('./routes/turnos'));
 app.use('/api/admin', require('./routes/admin'));
 
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'landing.html')));
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/cliente', (req, res) => res.sendFile(path.join(__dirname, 'public', 'cliente.html')));
 

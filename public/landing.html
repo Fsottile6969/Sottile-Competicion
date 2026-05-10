@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TallerPro — Taller Mecánico</title>
+  <style>
+    :root {
+      --primary: #e63946;
+      --primary-dark: #c1121f;
+      --secondary: #1d3557;
+      --accent: #457b9d;
+      --bg: #f8f9fa;
+      --text: #212529;
+      --text-muted: #6c757d;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); }
+
+    /* NAV */
+    nav {
+      position: fixed; top: 0; width: 100%; z-index: 100;
+      background: rgba(29,53,87,0.95); backdrop-filter: blur(10px);
+      padding: 0 2rem; height: 64px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-brand { color: white; font-size: 1.3rem; font-weight: 800; text-decoration: none; }
+    .nav-brand span { color: var(--primary); }
+    .nav-cta {
+      background: var(--primary); color: white;
+      padding: 0.5rem 1.2rem; border-radius: 8px;
+      text-decoration: none; font-weight: 600; font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+    .nav-cta:hover { background: var(--primary-dark); }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      background: linear-gradient(135deg, var(--secondary) 0%, #2a4a6b 55%, #1a1a2e 100%);
+      display: flex; align-items: center; justify-content: center;
+      text-align: center; padding: 6rem 1.5rem 4rem;
+      position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    .hero-content { position: relative; max-width: 700px; }
+    .hero-badge {
+      display: inline-block;
+      background: rgba(230,57,70,0.2); border: 1px solid rgba(230,57,70,0.4);
+      color: #ff8a93; padding: 0.4rem 1rem; border-radius: 20px;
+      font-size: 0.85rem; font-weight: 600; margin-bottom: 1.5rem;
+      letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.8rem);
+      font-weight: 900; color: white; line-height: 1.15;
+      margin-bottom: 1.2rem;
+    }
+    .hero h1 span { color: var(--primary); }
+    .hero p {
+      font-size: 1.15rem; color: rgba(255,255,255,0.75);
+      margin-bottom: 2.5rem; line-height: 1.7;
+    }
+    .hero-btns { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .btn-hero-primary {
+      background: var(--primary); color: white;
+      padding: 0.9rem 2rem; border-radius: 10px;
+      text-decoration: none; font-weight: 700; font-size: 1rem;
+      transition: all 0.2s; box-shadow: 0 4px 20px rgba(230,57,70,0.4);
+    }
+    .btn-hero-primary:hover { background: var(--primary-dark); transform: translateY(-2px); }
+    .btn-hero-outline {
+      background: transparent; color: white;
+      border: 2px solid rgba(255,255,255,0.3);
+      padding: 0.9rem 2rem; border-radius: 10px;
+      text-decoration: none; font-weight: 600; font-size: 1rem;
+      transition: all 0.2s;
+    }
+    .btn-hero-outline:hover { border-color: white; background: rgba(255,255,255,0.08); }
+    .hero-stats {
+      display: flex; gap: 2.5rem; justify-content: center;
+      margin-top: 3.5rem; flex-wrap: wrap;
+    }
+    .hero-stat { text-align: center; }
+    .hero-stat strong { display: block; font-size: 2rem; font-weight: 800; color: white; }
+    .hero-stat span { font-size: 0.85rem; color: rgba(255,255,255,0.6); }
+
+    /* SECTION BASE */
+    section { padding: 5rem 1.5rem; }
+    .section-header { text-align: center; margin-bottom: 3.5rem; }
+    .section-tag {
+      display: inline-block; color: var(--primary);
+      font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.1em; margin-bottom: 0.75rem;
+    }
+    .section-header h2 { font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 800; color: var(--secondary); margin-bottom: 0.75rem; }
+    .section-header p { color: var(--text-muted); font-size: 1rem; max-width: 520px; margin: 0 auto; }
+
+    /* SERVICIOS CAROUSEL */
+    .carousel-section { background: white; }
+    .carousel-wrapper { max-width: 1100px; margin: 0 auto; position: relative; }
+    .carousel-track-outer { overflow: hidden; border-radius: var(--radius); }
+    .carousel-track {
+      display: flex; transition: transform 0.45s cubic-bezier(0.25,0.46,0.45,0.94);
+    }
+    .carousel-slide {
+      min-width: 100%; display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0; border-radius: var(--radius);
+      overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,0.12);
+    }
+    .slide-img {
+      background: var(--secondary);
+      min-height: 380px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 6rem; position: relative; overflow: hidden;
+    }
+    .slide-img::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(29,53,87,0.3), transparent);
+    }
+    .slide-body {
+      background: white; padding: 3rem 2.5rem;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+    .slide-num {
+      font-size: 0.75rem; font-weight: 700; color: var(--primary);
+      text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.75rem;
+    }
+    .slide-body h3 { font-size: 1.6rem; font-weight: 800; color: var(--secondary); margin-bottom: 1rem; }
+    .slide-body p { color: var(--text-muted); line-height: 1.7; font-size: 0.95rem; margin-bottom: 1.5rem; }
+    .slide-tags { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .slide-tag {
+      background: var(--bg); color: var(--secondary);
+      padding: 0.3rem 0.75rem; border-radius: 20px;
+      font-size: 0.78rem; font-weight: 600;
+    }
+    .carousel-controls {
+      display: flex; align-items: center; justify-content: center;
+      gap: 1rem; margin-top: 2rem;
+    }
+    .carousel-btn {
+      width: 44px; height: 44px; border-radius: 50%;
+      border: 2px solid var(--secondary); background: white;
+      color: var(--secondary); font-size: 1.1rem;
+      cursor: pointer; transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .carousel-btn:hover { background: var(--secondary); color: white; }
+    .carousel-dots { display: flex; gap: 0.5rem; }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #dee2e6; cursor: pointer; transition: all 0.2s;
+    }
+    .dot.active { background: var(--primary); width: 24px; border-radius: 4px; }
+
+    /* CONSEJOS */
+    .tips-section { background: var(--bg); }
+    .tips-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.5rem; max-width: 1100px; margin: 0 auto;
+    }
+    .tip-card {
+      background: white; border-radius: var(--radius);
+      padding: 1.8rem; box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+      border-top: 4px solid transparent;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .tip-card:hover { transform: translateY(-4px); box-shadow: 0 8px 30px rgba(0,0,0,0.1); }
+    .tip-card:nth-child(1) { border-top-color: var(--primary); }
+    .tip-card:nth-child(2) { border-top-color: var(--accent); }
+    .tip-card:nth-child(3) { border-top-color: #2d6a4f; }
+    .tip-card:nth-child(4) { border-top-color: #e9c46a; }
+    .tip-card:nth-child(5) { border-top-color: #9b5de5; }
+    .tip-card:nth-child(6) { border-top-color: var(--secondary); }
+    .tip-icon { font-size: 2.2rem; margin-bottom: 1rem; }
+    .tip-card h4 { font-size: 1rem; font-weight: 700; color: var(--secondary); margin-bottom: 0.5rem; }
+    .tip-card p { font-size: 0.88rem; color: var(--text-muted); line-height: 1.6; }
+
+    /* CTA */
+    .cta-section {
+      background: linear-gradient(135deg, var(--secondary), #2a4a6b);
+      text-align: center; padding: 6rem 1.5rem;
+    }
+    .cta-section h2 { font-size: clamp(1.8rem, 3.5vw, 2.8rem); font-weight: 900; color: white; margin-bottom: 1rem; }
+    .cta-section p { color: rgba(255,255,255,0.7); font-size: 1.05rem; margin-bottom: 2.5rem; max-width: 500px; margin-left: auto; margin-right: auto; }
+    .cta-btns { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .btn-cta-primary {
+      background: var(--primary); color: white;
+      padding: 1rem 2.5rem; border-radius: 10px;
+      text-decoration: none; font-weight: 700; font-size: 1.05rem;
+      transition: all 0.2s; box-shadow: 0 4px 20px rgba(230,57,70,0.4);
+    }
+    .btn-cta-primary:hover { background: var(--primary-dark); transform: translateY(-2px); }
+    .btn-cta-outline {
+      background: transparent; color: white;
+      border: 2px solid rgba(255,255,255,0.35);
+      padding: 1rem 2.5rem; border-radius: 10px;
+      text-decoration: none; font-weight: 600; font-size: 1.05rem;
+      transition: all 0.2s;
+    }
+    .btn-cta-outline:hover { border-color: white; background: rgba(255,255,255,0.08); }
+
+    /* FOOTER */
+    footer {
+      background: #111827; color: rgba(255,255,255,0.5);
+      text-align: center; padding: 1.5rem;
+      font-size: 0.85rem;
+    }
+    footer span { color: var(--primary); }
+
+    /* RESPONSIVE */
+    @media (max-width: 700px) {
+      .carousel-slide { grid-template-columns: 1fr; }
+      .slide-img { min-height: 200px; }
+      .slide-body { padding: 2rem 1.5rem; }
+      .hero-stats { gap: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <a href="#" class="nav-brand">Taller<span>Pro</span></a>
+    <a href="/index.html" class="nav-cta">Reservar turno →</a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-content">
+      <div class="hero-badge">🔧 Taller Mecánico Profesional</div>
+      <h1>Tu vehículo en las<br><span>mejores manos</span></h1>
+      <p>Servicio de calidad, diagnóstico preciso y atención personalizada.<br>Reservá tu turno en minutos desde donde estés.</p>
+      <div class="hero-btns">
+        <a href="/index.html" class="btn-hero-primary">Reservar turno</a>
+        <a href="#servicios" class="btn-hero-outline">Ver servicios</a>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat"><strong>+500</strong><span>Clientes satisfechos</span></div>
+        <div class="hero-stat"><strong>10+</strong><span>Años de experiencia</span></div>
+        <div class="hero-stat"><strong>100%</strong><span>Garantía de trabajo</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICIOS CAROUSEL -->
+  <section class="carousel-section" id="servicios">
+    <div class="section-header">
+      <div class="section-tag">Lo que hacemos</div>
+      <h2>Nuestros servicios</h2>
+      <p>Trabajos realizados con repuestos de calidad y mano de obra especializada.</p>
+    </div>
+    <div class="carousel-wrapper">
+      <div class="carousel-track-outer">
+        <div class="carousel-track" id="carouselTrack">
+
+          <div class="carousel-slide">
+            <div class="slide-img" style="background: linear-gradient(135deg,#1d3557,#457b9d);">🔧</div>
+            <div class="slide-body">
+              <div class="slide-num">Servicio 01</div>
+              <h3>Service & Mantenimiento</h3>
+              <p>Cambio de aceite, filtros, bujías y revisión general. Mantenemos tu motor en óptimas condiciones para prolongar la vida útil del vehículo.</p>
+              <div class="slide-tags">
+                <span class="slide-tag">Aceite</span>
+                <span class="slide-tag">Filtros</span>
+                <span class="slide-tag">Bujías</span>
+                <span class="slide-tag">Revisión general</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="carousel-slide">
+            <div class="slide-img" style="background: linear-gradient(135deg,#2d6a4f,#1b4332);">🛞</div>
+            <div class="slide-body">
+              <div class="slide-num">Servicio 02</div>
+              <h3>Frenos y Suspensión</h3>
+              <p>Diagnóstico y reparación de sistema de frenos, pastillas, discos y amortiguadores. Tu seguridad es nuestra prioridad.</p>
+              <div class="slide-tags">
+                <span class="slide-tag">Pastillas</span>
+                <span class="slide-tag">Discos</span>
+                <span class="slide-tag">Amortiguadores</span>
+                <span class="slide-tag">ABS</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="carousel-slide">
+            <div class="slide-img" style="background: linear-gradient(135deg,#c1121f,#e63946);">⚡</div>
+            <div class="slide-body">
+              <div class="slide-num">Servicio 03</div>
+              <h3>Electricidad Automotriz</h3>
+              <p>Diagnóstico computarizado, reparación de instalación eléctrica, batería, alternador y sistema de arranque.</p>
+              <div class="slide-tags">
+                <span class="slide-tag">Diagnóstico OBD</span>
+                <span class="slide-tag">Batería</span>
+                <span class="slide-tag">Alternador</span>
+                <span class="slide-tag">Luces</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="carousel-slide">
+            <div class="slide-img" style="background: linear-gradient(135deg,#6a0572,#9b5de5);">🌡️</div>
+            <div class="slide-body">
+              <div class="slide-num">Servicio 04</div>
+              <h3>Sistema de Refrigeración</h3>
+              <p>Revisión y reparación del sistema de enfriamiento: radiador, termostato, bomba de agua y mangueras para evitar el sobrecalentamiento.</p>
+              <div class="slide-tags">
+                <span class="slide-tag">Radiador</span>
+                <span class="slide-tag">Termostato</span>
+                <span class="slide-tag">Bomba de agua</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="carousel-slide">
+            <div class="slide-img" style="background: linear-gradient(135deg,#7b4f00,#e9c46a);">⚙️</div>
+            <div class="slide-body">
+              <div class="slide-num">Servicio 05</div>
+              <h3>Transmisión y Caja</h3>
+              <p>Reparación de caja de cambios manual y automática, embrague, diferencial y cardán. Diagnóstico preciso antes de cualquier intervención.</p>
+              <div class="slide-tags">
+                <span class="slide-tag">Embrague</span>
+                <span class="slide-tag">Caja manual</span>
+                <span class="slide-tag">Automática</span>
+                <span class="slide-tag">Diferencial</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div class="carousel-controls">
+        <button class="carousel-btn" id="prevBtn">&#8592;</button>
+        <div class="carousel-dots" id="carouselDots"></div>
+        <button class="carousel-btn" id="nextBtn">&#8594;</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONSEJOS -->
+  <section class="tips-section" id="consejos">
+    <div class="section-header">
+      <div class="section-tag">Cuidá tu auto</div>
+      <h2>Consejos útiles</h2>
+      <p>Pequeños hábitos que marcan la diferencia en la vida útil de tu vehículo.</p>
+    </div>
+    <div class="tips-grid">
+      <div class="tip-card">
+        <div class="tip-icon">🛢️</div>
+        <h4>Cambiá el aceite a tiempo</h4>
+        <p>Realizá el cambio de aceite cada 5.000–10.000 km según el tipo de aceite. Un motor bien lubricado dura el doble.</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">🌡️</div>
+        <h4>Controlá la temperatura</h4>
+        <p>Si el indicador de temperatura sube, detenete de inmediato. Seguir manejando puede destruir el motor en minutos.</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">🛞</div>
+        <h4>Revisá la presión de neumáticos</h4>
+        <p>Neumáticos con presión incorrecta aumentan el consumo de combustible hasta un 10% y reducen la seguridad.</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">🔋</div>
+        <h4>Cuidá la batería</h4>
+        <p>Si el auto tarda en arrancar o las luces parpadean, revisá la batería. Una batería débil puede dejarte varado.</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">🛑</div>
+        <h4>No ignores los frenos</h4>
+        <p>Si escuchás chirridos o sentís vibración al frenar, llevá el auto al taller. Los frenos no admiten demoras.</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">📅</div>
+        <h4>Hacé el service preventivo</h4>
+        <p>Un service a tiempo evita reparaciones costosas. Seguí el plan de mantenimiento del fabricante sin saltear revisiones.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-section">
+    <h2>¿Listo para reservar tu turno?</h2>
+    <p>Registrate gratis y gestioná tus turnos, vehículos y notificaciones desde un solo lugar.</p>
+    <div class="cta-btns">
+      <a href="/index.html" class="btn-cta-primary">Registrarse gratis</a>
+      <a href="/index.html" class="btn-cta-outline">Iniciar sesión</a>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>© 2025 <span>TallerPro</span> — Todos los derechos reservados.</p>
+  </footer>
+
+  <script>
+    const track = document.getElementById('carouselTrack');
+    const slides = track.querySelectorAll('.carousel-slide');
+    const dotsContainer = document.getElementById('carouselDots');
+    let current = 0;
+
+    slides.forEach((_, i) => {
+      const dot = document.createElement('div');
+      dot.className = 'dot' + (i === 0 ? ' active' : '');
+      dot.onclick = () => goTo(i);
+      dotsContainer.appendChild(dot);
+    });
+
+    function goTo(n) {
+      current = (n + slides.length) % slides.length;
+      track.style.transform = `translateX(-${current * 100}%)`;
+      dotsContainer.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === current));
+    }
+
+    document.getElementById('prevBtn').onclick = () => goTo(current - 1);
+    document.getElementById('nextBtn').onclick = () => goTo(current + 1);
+
+    // Auto-avance cada 5s
+    setInterval(() => goTo(current + 1), 5000);
+
+    // Smooth scroll para links internos
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        document.querySelector(a.getAttribute('href'))?.scrollIntoView({ behavior: 'smooth' });
+      });
+    });
+  </script>
+</body>
+</html>
