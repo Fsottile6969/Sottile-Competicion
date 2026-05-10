@@ -62,6 +62,7 @@ router.post('/login', async (req, res) => {
     console.warn(`[LOGIN FALLIDO] email=${email} ip=${req.ip}`);
     return res.status(401).json({ error: 'Credenciales inválidas' });
   }
+  if (user.suspendido) return res.status(403).json({ error: 'Tu cuenta está suspendida. Contactá al taller.' });
 
   res.json({ token: signToken(user), user: { id: user.id, nombre: user.nombre, rol: user.rol } });
 });
@@ -93,6 +94,8 @@ router.post('/google', async (req, res) => {
   } else if (!user.google_id) {
     await db.prepare('UPDATE usuarios SET google_id = ? WHERE id = ?').run(encrypt(google_id), user.id);
   }
+
+  if (user.suspendido) return res.status(403).json({ error: 'Tu cuenta está suspendida. Contactá al taller.' });
 
   res.json({ token: signToken(user), user: { id: user.id, nombre: user.nombre, rol: user.rol } });
 });

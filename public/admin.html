@@ -345,20 +345,38 @@
       container.innerHTML = `
         <div class="table-wrapper">
           <table>
-            <thead><tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Registrado</th><th>Acciones</th></tr></thead>
+            <thead><tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Registrado</th><th>Estado</th><th>Acciones</th></tr></thead>
             <tbody>${clientes.map(c => `
-              <tr>
+              <tr style="opacity:${c.suspendido ? '0.6' : '1'}">
                 <td>${c.nombre}</td>
                 <td>${c.email}</td>
                 <td>${c.telefono || '-'}</td>
                 <td>${formatFecha(c.created_at?.split('T')[0] || c.created_at?.split(' ')[0])}</td>
+                <td><span class="badge ${c.suspendido ? 'badge-cancelado' : 'badge-terminado'}">${c.suspendido ? 'Suspendido' : 'Activo'}</span></td>
                 <td>
-                  ${c.telefono ? `<a class="btn btn-whatsapp btn-sm" href="https://wa.me/${limpiarTel(c.telefono)}?text=${encodeURIComponent('Hola ' + c.nombre + ', te contactamos desde el taller.')}" target="_blank">💬 WhatsApp</a>` : '-'}
+                  <div class="actions">
+                    ${c.telefono ? `<a class="btn btn-whatsapp btn-sm" href="https://wa.me/${limpiarTel(c.telefono)}?text=${encodeURIComponent('Hola ' + c.nombre + ', te contactamos desde el taller.')}" target="_blank">WhatsApp</a>` : ''}
+                    <button class="btn btn-warning btn-sm" onclick="suspenderCliente(${c.id}, ${c.suspendido})">${c.suspendido ? 'Reactivar' : 'Suspender'}</button>
+                    <button class="btn btn-danger btn-sm" onclick="eliminarCliente(${c.id}, '${c.nombre}')">Eliminar</button>
+                  </div>
                 </td>
               </tr>`).join('')}
             </tbody>
           </table>
         </div>`;
+    }
+
+    async function suspenderCliente(id, suspendido) {
+      const accion = suspendido ? 'reactivar' : 'suspender';
+      if (!confirm(`¿Segúro que querés ${accion} esta cuenta?`)) return;
+      await apiFetch(`/admin/clientes/${id}/suspender`, { method: 'PATCH' });
+      cargarClientes();
+    }
+
+    async function eliminarCliente(id, nombre) {
+      if (!confirm(`¿ELIMINAR permanentemente la cuenta de ${nombre}?\nSe borrarán todos sus turnos y vehículos.`)) return;
+      await apiFetch(`/admin/clientes/${id}`, { method: 'DELETE' });
+      cargarClientes();
     }
 
     // ── HELPERS ──

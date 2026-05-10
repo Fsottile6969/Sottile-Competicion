@@ -48,6 +48,7 @@ const ready = pool.query(`
   CREATE INDEX IF NOT EXISTS idx_turnos_usuario ON turnos(usuario_id);
   CREATE INDEX IF NOT EXISTS idx_vehiculos_usuario ON vehiculos(usuario_id);
   CREATE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios(email);
+  ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS suspendido BOOLEAN DEFAULT false;
 `);
 
 // Convierte "WHERE campo = ?" a "WHERE campo = $1" automáticamente

@@ -100,8 +100,25 @@ router.get('/stats', authMiddleware, adminMiddleware, async (req, res) => {
 
 router.get('/clientes', authMiddleware, adminMiddleware, async (req, res) => {
   res.json(await db.prepare(
-    "SELECT id, nombre, email, telefono, created_at FROM usuarios WHERE rol = 'cliente' ORDER BY nombre"
+    "SELECT id, nombre, email, telefono, suspendido, created_at FROM usuarios WHERE rol = 'cliente' ORDER BY nombre"
   ).all().then(rows => rows.map(r => ({ ...r, telefono: decrypt(r.telefono) }))));
+});
+
+router.patch('/clientes/:id/suspender', authMiddleware, adminMiddleware, async (req, res) => {
+  const cliente = await db.prepare("SELECT id, rol FROM usuarios WHERE id = ? AND rol = 'cliente'").get(req.params.id);
+  if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
+  await db.prepare('UPDATE usuarios SET suspendido = NOT COALESCE(suspendido, false) WHERE id = ?').run(req.params.id);
+  const updated = await db.prepare('SELECT suspendido FROM usuarios WHERE id = ?').get(req.params.id);
+  console.warn(`[ADMIN] cliente_id=${req.params.id} ${updated.suspendido ? 'SUSPENDIDO' : 'REACTIVADO'} por admin_id=${req.user.id}`);
+  res.json({ ok: true, suspendido: updated.suspendido });
+});
+
+router.delete('/clientes/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  const cliente = await db.prepare("SELECT id, rol FROM usuarios WHERE id = ? AND rol = 'cliente'").get(req.params.id);
+  if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
+  await db.prepare('DELETE FROM usuarios WHERE id = ?').run(req.params.id);
+  console.warn(`[ADMIN] cliente_id=${req.params.id} ELIMINADO por admin_id=${req.user.id}`);
+  res.json({ ok: true });
 });
 
 module.exports = router;
