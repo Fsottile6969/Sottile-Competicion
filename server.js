@@ -37,6 +37,7 @@ app.use((req, res, next) => {
 });
 
 // Rate limiting global
+app.set('trust proxy', 1);
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false }));
 
 // Rate limiting estricto para auth

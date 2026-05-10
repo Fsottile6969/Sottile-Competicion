@@ -116,7 +116,16 @@ router.patch('/clientes/:id/suspender', authMiddleware, adminMiddleware, async (
 router.delete('/clientes/:id', authMiddleware, adminMiddleware, async (req, res) => {
   const cliente = await db.prepare("SELECT id, rol FROM usuarios WHERE id = ? AND rol = 'cliente'").get(req.params.id);
   if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
+
+  // Borrar en orden para respetar foreign keys
+  const turnos = await db.prepare('SELECT id FROM turnos WHERE usuario_id = ?').all(req.params.id);
+  for (const t of turnos) {
+    await db.prepare('DELETE FROM trabajos WHERE turno_id = ?').run(t.id);
+  }
+  await db.prepare('DELETE FROM turnos WHERE usuario_id = ?').run(req.params.id);
+  await db.prepare('DELETE FROM vehiculos WHERE usuario_id = ?').run(req.params.id);
   await db.prepare('DELETE FROM usuarios WHERE id = ?').run(req.params.id);
+
   console.warn(`[ADMIN] cliente_id=${req.params.id} ELIMINADO por admin_id=${req.user.id}`);
   res.json({ ok: true });
 });
