@@ -88,6 +88,11 @@ app.get('/api/ping', async (req, res) => {
   }
 });
 
+// Exponer config pública al frontend
+app.get('/api/auth/config', (req, res) => {
+  res.json({ googleClientId: process.env.GOOGLE_CLIENT_ID });
+});
+
 app.use('/api/auth', authLimiter, require('./routes/auth'));
 app.use('/api/turnos', require('./routes/turnos'));
 app.use('/api/admin', require('./routes/admin'));

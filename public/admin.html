@@ -215,7 +215,7 @@
                 <td>
                   <div class="actions">
                     <button class="btn btn-secondary btn-sm" onclick="abrirDetalle(${t.id})">Ver</button>
-                    <a class="btn btn-whatsapp btn-sm" href="${whatsappLink(t)}" target="_blank">WhatsApp</a>
+                    <a class="btn btn-whatsapp btn-sm" href="${whatsappLink(t)}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
                   </div>
                 </td>
               </tr>`).join('')}
@@ -272,7 +272,7 @@
           style="${turnoActual.estado === e.val ? 'outline:3px solid #000;outline-offset:2px' : ''}">
           ${e.label}
         </button>`).join('') +
-        `<a class="btn btn-whatsapp btn-sm" href="${whatsappLink(turnoActual)}" target="_blank">💬 WhatsApp</a>`;
+        `<a class="btn btn-whatsapp btn-sm" href="${whatsappLink(turnoActual)}" target="_blank" rel="noopener noreferrer">💬 WhatsApp</a>`;
 
       await cargarTrabajos();
       openModal('modalTurno');
@@ -364,7 +364,7 @@
                 <td><span class="badge ${c.suspendido ? 'badge-cancelado' : 'badge-terminado'}">${c.suspendido ? 'Suspendido' : 'Activo'}</span></td>
                 <td>
                   <div class="actions">
-                    ${c.telefono ? `<a class="btn btn-whatsapp btn-sm" href="https://wa.me/${limpiarTel(c.telefono)}?text=${encodeURIComponent('Hola ' + c.nombre + ', te contactamos desde el taller.')}" target="_blank">WhatsApp</a>` : ''}
+                    ${c.telefono ? `<a class="btn btn-whatsapp btn-sm" href="https://wa.me/${limpiarTel(c.telefono)}?text=${encodeURIComponent('Hola ' + c.nombre + ', te contactamos desde el taller.')}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}
                     <button class="btn btn-warning btn-sm" onclick="suspenderCliente(${c.id}, ${c.suspendido})">${c.suspendido ? 'Reactivar' : 'Suspender'}</button>
                     <button class="btn btn-danger btn-sm" onclick="eliminarCliente(${c.id}, '${c.nombre}')">Eliminar</button>
                   </div>

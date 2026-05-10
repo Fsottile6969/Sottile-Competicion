@@ -147,8 +147,11 @@
     }
 
     function loginGoogle() {
-      google.accounts.id.initialize({
-        client_id: '247962980061-uruj4rahe231ee92fk0h73cec49c59hi.apps.googleusercontent.com',
+      fetch('/api/auth/config')
+        .then(r => r.json())
+        .then(({ googleClientId }) => {
+          google.accounts.id.initialize({
+            client_id: googleClientId,
         callback: async (response) => {
           const res = await fetch(`${API}/auth/google`, {
             method: 'POST',
@@ -171,6 +174,8 @@
         }
       });
       google.accounts.id.prompt();
+        })
+        .catch(() => showAlert('Error al conectar con Google. Intentá nuevamente.'));
     }
 
     async function guardarTelefonoGoogle() {
