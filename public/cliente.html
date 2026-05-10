@@ -108,16 +108,22 @@
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     let horaSeleccionada = null;
 
-    if (!token) window.location.href = '/';
-    if (user.rol === 'admin') window.location.href = '/admin.html';
+    // Verificar sesion activa con el servidor
+    async function verificarSesion() {
+      if (!token) { window.location.replace('/'); return false; }
+      const res = await fetch(`${API}/turnos/vehiculos`, { headers: { 'Authorization': `Bearer ${token}` } });
+      if (res.status === 401) { localStorage.clear(); window.location.replace('/'); return false; }
+      return true;
+    }
 
+    if (user.rol === 'admin') window.location.replace('/admin');
     document.getElementById('navUser').textContent = `Hola, ${user.nombre}`;
 
     const headers = () => ({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` });
 
     async function apiFetch(url, opts = {}) {
       const res = await fetch(API + url, { ...opts, headers: headers() });
-      if (res.status === 401) { logout(); return null; }
+      if (res.status === 401) { localStorage.clear(); window.location.replace('/'); return null; }
       return res.json();
     }
 
@@ -320,8 +326,7 @@
     }
 
     // Init
-    cargarTurnos();
-    registrarPush();
+    verificarSesion().then(ok => { if (ok) { cargarTurnos(); registrarPush(); } });
   </script>
 </body>
 </html>

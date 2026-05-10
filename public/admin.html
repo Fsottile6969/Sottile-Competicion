@@ -139,7 +139,13 @@
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     let turnoActual = null;
 
-    if (!token || user.rol !== 'admin') window.location.href = '/';
+    // Verificar sesion activa con el servidor
+    async function verificarSesion() {
+      if (!token || user.rol !== 'admin') { localStorage.clear(); window.location.replace('/'); return false; }
+      const res = await fetch(`${API}/admin/stats`, { headers: { 'Authorization': `Bearer ${token}` } });
+      if (res.status === 401 || res.status === 403) { localStorage.clear(); window.location.replace('/'); return false; }
+      return true;
+    }
 
     document.getElementById('navUser').textContent = user.nombre;
 
@@ -147,7 +153,7 @@
 
     async function apiFetch(url, opts = {}) {
       const res = await fetch(API + url, { ...opts, headers: headers() });
-      if (res.status === 401) { logout(); return null; }
+      if (res.status === 401) { localStorage.clear(); window.location.replace('/'); return null; }
       return res.json();
     }
 
@@ -406,8 +412,7 @@
     }
 
     // Init
-    cargarDashboard();
-    registrarPushAdmin();
+    verificarSesion().then(ok => { if (ok) { cargarDashboard(); registrarPushAdmin(); } });
   </script>
 </body>
 </html>
