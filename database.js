@@ -2,13 +2,13 @@ const { Pool } = require('pg');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  // CWE-295 — Render usa certificados autofirmados internos, rejectUnauthorized:false es requerido
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  connectionTimeoutMillis: 5000,   // #4 timeout de conexión
+  connectionTimeoutMillis: 5000,
   idleTimeoutMillis: 30000,
   max: 10
 });
 
-// #9 — log de errores de conexión inesperados
 pool.on('error', (err) => {
   console.error('[DB] Error inesperado en cliente idle:', err.message);
 });
@@ -59,12 +59,14 @@ const ready = pool.query(`
   CREATE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios(email);
   ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS suspendido BOOLEAN DEFAULT false;
 `).catch(err => {
-  // #2 — error claro si la DB falla al iniciar
   console.error('[DB] Error al inicializar tablas:', err.message);
   process.exit(1);
 });
 
+// CWE-89 — convierte ? a $1,$2... para queries parametrizadas de pg
+// Los valores NUNCA se interpolan en el SQL, siempre van como params separados
 function toPositional(sql) {
+  if (sql.includes('${')) throw new Error('SQL no debe contener interpolaciones de template');
   let i = 0;
   return sql.replace(/\?/g, () => `$${++i}`);
 }
@@ -90,7 +92,6 @@ const db = {
     };
   },
 
-  // #3 — exponer pool directamente para queries complejas en admin
   query(...args) {
     return pool.query(...args);
   },

@@ -1,8 +1,9 @@
 const CACHE_VERSION = 'v2';
 const CACHE_NAME = `sottile-${CACHE_VERSION}`;
 const STATIC_ASSETS = ['/css/style.css'];
+// CWE-918 — lista blanca de orígenes permitidos para fetch
+const ALLOWED_ORIGIN = self.location.origin;
 
-// Instalar: cachear assets estáticos
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
@@ -10,7 +11,6 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activar: limpiar cachés viejas — #8
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -20,9 +20,12 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: network-first para API, cache-first para assets estáticos
 self.addEventListener('fetch', (event) => {
-  if (event.request.url.includes('/api/')) return; // API siempre desde red
+  const url = new URL(event.request.url);
+  // CWE-918 — solo procesar requests al mismo origen
+  if (url.origin !== ALLOWED_ORIGIN) return;
+  if (url.pathname.startsWith('/api/')) return;
+
   event.respondWith(
     fetch(event.request)
       .then(res => {
@@ -36,7 +39,6 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Push notifications
 self.addEventListener('push', (event) => {
   const data = event.data?.json() || {};
   event.waitUntil(
@@ -51,5 +53,9 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  event.waitUntil(clients.openWindow(event.notification.data.url));
+  // CWE-346 — validar que la URL pertenece al mismo origen antes de abrir
+  const targetUrl = event.notification.data?.url || '/';
+  const safeUrl = new URL(targetUrl, self.location.origin);
+  if (safeUrl.origin !== self.location.origin) return;
+  event.waitUntil(clients.openWindow(safeUrl.pathname));
 });

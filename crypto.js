@@ -1,13 +1,14 @@
 const crypto = require('crypto');
 
 const ALGO = 'aes-256-gcm';
+const HEX_REGEX = /^[0-9a-f]+$/i; // CWE-185 — regex literal
 
-// Lazy-load KEY para evitar crash si se importa antes de dotenv
 let KEY = null;
 function getKey() {
   if (!KEY) {
-    KEY = Buffer.from(process.env.ENCRYPTION_KEY || '', 'hex');
-    if (KEY.length !== 32) throw new Error('ENCRYPTION_KEY inválida');
+    const raw = String(process.env.ENCRYPTION_KEY || '');
+    if (raw.length !== 64 || !HEX_REGEX.test(raw)) throw new Error('ENCRYPTION_KEY inválida');
+    KEY = Buffer.from(raw, 'hex');
   }
   return KEY;
 }
@@ -25,10 +26,14 @@ function encrypt(text) {
 function decrypt(text) {
   if (!text || typeof text !== 'string') return null;
   const parts = text.split(':');
-  if (parts.length !== 3) return text; // dato no cifrado (legacy)
+  if (parts.length !== 3) return text;
   try {
-    const key = getKey();
+    // CWE-502 — validar que cada parte es hex válido antes de Buffer.from
     const [ivHex, tagHex, dataHex] = parts;
+    if (!HEX_REGEX.test(ivHex) || !HEX_REGEX.test(tagHex) || !HEX_REGEX.test(dataHex)) return null;
+    if (ivHex.length !== 24 || tagHex.length !== 32) return null; // iv=12bytes, tag=16bytes
+
+    const key = getKey();
     const iv = Buffer.from(ivHex, 'hex');
     const tag = Buffer.from(tagHex, 'hex');
     const data = Buffer.from(dataHex, 'hex');

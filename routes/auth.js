@@ -17,7 +17,8 @@ const signToken = (user) =>
     { expiresIn: '24h', algorithm: 'HS256' }
   );
 
-const isValidEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e));
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const isValidEmail = (e) => EMAIL_REGEX.test(String(e));
 const sanitize = (str) => (str == null ? '' : String(str).trim().slice(0, 200));
 const sanitizeTel = (str) => (str == null ? '' : String(str).replace(/[^\d+\s\-()]/g, '').trim().slice(0, 30));
 
