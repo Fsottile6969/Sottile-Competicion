@@ -3,6 +3,12 @@ const router = express.Router();
 const { db, pool } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware');
 const { enviarNotificacion } = require('../notifications');
+const { decrypt } = require('../crypto');
+
+// Descifra telefono en un array de objetos
+function decryptTelefono(rows) {
+  return rows.map(r => ({ ...r, telefono: decrypt(r.telefono) }));
+}
 
 router.get('/turnos', authMiddleware, adminMiddleware, async (req, res) => {
   const { fecha, estado } = req.query;
@@ -18,7 +24,7 @@ router.get('/turnos', authMiddleware, adminMiddleware, async (req, res) => {
   if (estado) { params.push(estado); query += ` AND t.estado = $${params.length}`; }
   query += ' ORDER BY t.fecha ASC, t.hora ASC';
   const { rows } = await pool.query(query, params);
-  res.json(rows);
+  res.json(decryptTelefono(rows));
 });
 
 router.patch('/turnos/:id', authMiddleware, adminMiddleware, async (req, res) => {
@@ -95,7 +101,7 @@ router.get('/stats', authMiddleware, adminMiddleware, async (req, res) => {
 router.get('/clientes', authMiddleware, adminMiddleware, async (req, res) => {
   res.json(await db.prepare(
     "SELECT id, nombre, email, telefono, created_at FROM usuarios WHERE rol = 'cliente' ORDER BY nombre"
-  ).all());
+  ).all().then(rows => rows.map(r => ({ ...r, telefono: decrypt(r.telefono) }))));
 });
 
 module.exports = router;

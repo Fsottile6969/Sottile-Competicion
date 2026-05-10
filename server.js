@@ -8,9 +8,10 @@ const bcrypt = require('bcryptjs');
 const { db } = require('./database');
 
 // Validar variables de entorno críticas al arrancar
-const requiredEnv = ['JWT_SECRET', 'ADMIN_EMAIL', 'ADMIN_PASSWORD', 'GOOGLE_CLIENT_ID'];
+const requiredEnv = ['JWT_SECRET', 'ADMIN_EMAIL', 'ADMIN_PASSWORD', 'GOOGLE_CLIENT_ID', 'ENCRYPTION_KEY'];
 requiredEnv.forEach(key => { if (!process.env[key]) { console.error(`❌ Falta variable de entorno: ${key}`); process.exit(1); } });
 if (process.env.JWT_SECRET.length < 32) { console.error('❌ JWT_SECRET debe tener al menos 32 caracteres'); process.exit(1); }
+if (process.env.ENCRYPTION_KEY.length !== 64) { console.error('❌ ENCRYPTION_KEY debe ser exactamente 64 caracteres hex'); process.exit(1); }
 
 const app = express();
 

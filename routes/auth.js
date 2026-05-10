@@ -5,15 +5,25 @@ const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const { db } = require('../database');
 const { authMiddleware } = require('../middleware');
+const { encrypt, decrypt } = require('../crypto');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const signToken = (user) =>
   jwt.sign({ id: user.id, rol: user.rol, nombre: user.nombre }, process.env.JWT_SECRET, { expiresIn: '24h' });
 
-// Validación simple
 const isValidEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 const sanitize = (str) => (str || '').toString().trim().slice(0, 200);
+
+// Descifra campos sensibles de un usuario antes de devolverlo
+function decryptUser(user) {
+  if (!user) return null;
+  return {
+    ...user,
+    telefono: decrypt(user.telefono),
+    google_id: decrypt(user.google_id)
+  };
+}
 
 router.post('/register', async (req, res) => {
   const nombre = sanitize(req.body.nombre);
@@ -31,7 +41,7 @@ router.post('/register', async (req, res) => {
   const hash = bcrypt.hashSync(password, 12);
   const result = await db.prepare(
     'INSERT INTO usuarios (nombre, email, password, telefono) VALUES (?, ?, ?, ?)'
-  ).run(nombre, email, hash, telefono || null);
+  ).run(nombre, email, hash, encrypt(telefono) || null);
 
   const user = await db.prepare('SELECT id, nombre, rol FROM usuarios WHERE id = ?').get(result.lastInsertRowid);
   res.json({ token: signToken(user), user });
@@ -73,15 +83,15 @@ router.post('/google', async (req, res) => {
 
   const { sub: google_id, email, name: nombre } = payload;
 
-  let user = await db.prepare('SELECT * FROM usuarios WHERE google_id = ? OR email = ?').get(google_id, email);
+  let user = await db.prepare('SELECT * FROM usuarios WHERE email = ?').get(email.toLowerCase());
 
   if (!user) {
     const result = await db.prepare(
       'INSERT INTO usuarios (nombre, email, google_id) VALUES (?, ?, ?)'
-    ).run(sanitize(nombre), email.toLowerCase(), google_id);
+    ).run(sanitize(nombre), email.toLowerCase(), encrypt(google_id));
     user = await db.prepare('SELECT * FROM usuarios WHERE id = ?').get(result.lastInsertRowid);
   } else if (!user.google_id) {
-    await db.prepare('UPDATE usuarios SET google_id = ? WHERE id = ?').run(google_id, user.id);
+    await db.prepare('UPDATE usuarios SET google_id = ? WHERE id = ?').run(encrypt(google_id), user.id);
   }
 
   res.json({ token: signToken(user), user: { id: user.id, nombre: user.nombre, rol: user.rol } });
