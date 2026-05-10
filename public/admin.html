@@ -73,6 +73,18 @@
     </main>
   </div>
 
+  <nav class="bottom-nav" id="bottomNav">
+    <button class="bottom-nav-item active" onclick="showSection('dashboard', this, true)">
+      <span class="nav-icon">📊</span> Dashboard
+    </button>
+    <button class="bottom-nav-item" onclick="showSection('turnos', this, true)">
+      <span class="nav-icon">📅</span> Turnos
+    </button>
+    <button class="bottom-nav-item" onclick="showSection('clientes', this, true)">
+      <span class="nav-icon">👥</span> Clientes
+    </button>
+  </nav>
+
   <div class="modal-overlay" id="modalTurno">
     <div class="modal" style="max-width:620px">
       <div class="modal-header">
@@ -139,11 +151,20 @@
       }
     }
 
-    function showSection(name, el) {
+    function showSection(name, el, fromBottom = false) {
       document.querySelectorAll('[id^="section-"]').forEach(s => s.style.display = 'none');
       document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.bottom-nav-item').forEach(s => s.classList.remove('active'));
       document.getElementById(`section-${name}`).style.display = 'block';
       el.classList.add('active');
+      // Sincronizar sidebar y bottom nav
+      if (fromBottom) {
+        const idx = ['dashboard','turnos','clientes'].indexOf(name);
+        document.querySelectorAll('.sidebar-item')[idx]?.classList.add('active');
+      } else {
+        const idx = [...document.querySelectorAll('.sidebar-item')].indexOf(el);
+        document.querySelectorAll('.bottom-nav-item')[idx]?.classList.add('active');
+      }
       if (name === 'dashboard') cargarDashboard();
       if (name === 'turnos') cargarTurnos();
       if (name === 'clientes') cargarClientes();
