@@ -54,10 +54,10 @@ app.use((req, res, next) => {
 
 // Rate limiting global
 app.set('trust proxy', 1);
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false }));
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false, skip: (req) => req.path === '/api/ping' }));
 
 // Rate limiting estricto para auth
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: { error: 'Demasiados intentos, esperá 15 minutos.' } });
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false, message: { error: 'Demasiados intentos, esperá 15 minutos.' } });
 
 app.use(express.json({ limit: '10kb' }));
 
@@ -92,10 +92,13 @@ app.use('/api/auth', authLimiter, require('./routes/auth'));
 app.use('/api/turnos', require('./routes/turnos'));
 app.use('/api/admin', require('./routes/admin'));
 
-// Manejo de errores global — #7 logs estructurados
+// Manejo de errores global
 app.use((err, req, res, next) => {
-  console.error(`[ERROR] requestId=${req.requestId} method=${req.method} url=${req.url} msg=${err.message}`);
-  res.status(err.status || 500).json({ error: 'Error interno del servidor' });
+  const status = err.status || err.statusCode || 500;
+  console.error(`[ERROR] requestId=${req.requestId} status=${status} method=${req.method} url=${req.url} msg=${err.message}`);
+  // No exponer detalles internos en producción
+  const message = status < 500 ? err.message : 'Error interno del servidor';
+  res.status(status).json({ error: message });
 });
 
 const noCache = (req, res, next) => {

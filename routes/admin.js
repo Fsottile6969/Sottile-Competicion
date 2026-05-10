@@ -5,49 +5,48 @@ const { authMiddleware, adminMiddleware } = require('../middleware');
 const { enviarNotificacion } = require('../notifications');
 const { decrypt } = require('../crypto');
 
-// #2 — wrapper async
 const asyncHandler = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
-
+const validId = (id) => Number.isInteger(Number(id)) && Number(id) > 0;
+const sanitize = (str) => (str == null ? '' : String(str).trim().slice(0, 500));
 const ESTADOS_VALIDOS = ['pendiente', 'en_proceso', 'terminado', 'cancelado'];
 
 function decryptTelefono(rows) {
   return rows.map(r => ({ ...r, telefono: decrypt(r.telefono) }));
 }
 
-// #6 — validar que un param es entero positivo
-const validId = (id) => Number.isInteger(Number(id)) && Number(id) > 0;
-
-// #3 — usar db.query en lugar de pool directamente
 router.get('/turnos', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   const { fecha, estado, page = 1 } = req.query;
   const limit = 50;
-  const offset = (Math.max(1, parseInt(page)) - 1) * limit;
+  const offset = (Math.max(1, parseInt(page, 10)) - 1) * limit;
 
   let query = `
-    SELECT t.*, v.marca, v.modelo, v.patente, u.nombre, u.email, u.telefono
+    SELECT t.id, t.fecha, t.hora, t.descripcion, t.estado, t.notas_admin, t.created_at,
+           v.marca, v.modelo, v.patente, u.nombre, u.email, u.telefono
     FROM turnos t
     JOIN vehiculos v ON t.vehiculo_id = v.id
     JOIN usuarios u ON t.usuario_id = u.id
     WHERE 1=1
   `;
   const params = [];
-  if (fecha) { params.push(fecha); query += ` AND t.fecha = $${params.length}`; }
+  if (fecha && /^\d{4}-\d{2}-\d{2}$/.test(fecha)) { params.push(fecha); query += ` AND t.fecha = $${params.length}`; }
   if (estado && ESTADOS_VALIDOS.includes(estado)) { params.push(estado); query += ` AND t.estado = $${params.length}`; }
   query += ` ORDER BY t.fecha ASC, t.hora ASC LIMIT ${limit} OFFSET ${offset}`;
+
   const { rows } = await db.query(query, params);
   res.json(decryptTelefono(rows));
 }));
 
 router.patch('/turnos/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   if (!validId(req.params.id)) return res.status(400).json({ error: 'ID inválido' });
-  const { estado, notas_admin } = req.body;
 
-  // #1 — validar estado contra lista permitida
+  const estado = req.body.estado;
+  const notas_admin = req.body.notas_admin;
+
   if (estado && !ESTADOS_VALIDOS.includes(estado))
     return res.status(400).json({ error: 'Estado inválido' });
 
   const turno = await db.prepare(`
-    SELECT t.*, u.push_subscription, u.nombre, v.patente
+    SELECT t.id, t.estado, t.notas_admin, u.push_subscription, v.patente
     FROM turnos t
     JOIN usuarios u ON t.usuario_id = u.id
     JOIN vehiculos v ON t.vehiculo_id = v.id
@@ -57,7 +56,7 @@ router.patch('/turnos/:id', authMiddleware, adminMiddleware, asyncHandler(async 
   if (!turno) return res.status(404).json({ error: 'Turno no encontrado' });
 
   await db.prepare('UPDATE turnos SET estado = ?, notas_admin = ? WHERE id = ?')
-    .run(estado || turno.estado, notas_admin ?? turno.notas_admin, req.params.id);
+    .run(estado || turno.estado, notas_admin !== undefined ? sanitize(notas_admin) : turno.notas_admin, req.params.id);
 
   if (estado === 'terminado' && turno.push_subscription) {
     await enviarNotificacion(JSON.parse(turno.push_subscription), {
@@ -77,23 +76,28 @@ router.get('/turnos/:id/trabajos', authMiddleware, adminMiddleware, asyncHandler
 
 router.post('/turnos/:id/trabajos', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   if (!validId(req.params.id)) return res.status(400).json({ error: 'ID inválido' });
-  const descripcion = (req.body.descripcion || '').toString().trim().slice(0, 500);
-  const costo = parseFloat(req.body.costo) || 0;
+  const descripcion = sanitize(req.body.descripcion);
+  const costo = Math.max(0, parseFloat(req.body.costo) || 0);
   if (!descripcion) return res.status(400).json({ error: 'Descripción requerida' });
-  if (costo < 0) return res.status(400).json({ error: 'Costo inválido' });
+
+  const turno = await db.prepare('SELECT id FROM turnos WHERE id = ?').get(req.params.id);
+  if (!turno) return res.status(404).json({ error: 'Turno no encontrado' });
+
   const result = await db.prepare(
     'INSERT INTO trabajos (turno_id, descripcion, costo) VALUES (?, ?, ?)'
   ).run(req.params.id, descripcion, costo);
-  res.json(await db.prepare('SELECT * FROM trabajos WHERE id = ?').get(result.lastInsertRowid));
+  res.status(201).json(await db.prepare('SELECT * FROM trabajos WHERE id = ?').get(result.lastInsertRowid));
 }));
 
 router.patch('/trabajos/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   if (!validId(req.params.id)) return res.status(400).json({ error: 'ID inválido' });
   const trabajo = await db.prepare('SELECT * FROM trabajos WHERE id = ?').get(req.params.id);
   if (!trabajo) return res.status(404).json({ error: 'Trabajo no encontrado' });
-  const descripcion = (req.body.descripcion || trabajo.descripcion).toString().trim().slice(0, 500);
-  const costo = req.body.costo !== undefined ? parseFloat(req.body.costo) : trabajo.costo;
+
+  const descripcion = req.body.descripcion !== undefined ? sanitize(req.body.descripcion) : trabajo.descripcion;
+  const costo = req.body.costo !== undefined ? Math.max(0, parseFloat(req.body.costo) || 0) : trabajo.costo;
   const estado = req.body.estado && ESTADOS_VALIDOS.includes(req.body.estado) ? req.body.estado : trabajo.estado;
+
   await db.prepare('UPDATE trabajos SET descripcion = ?, costo = ?, estado = ? WHERE id = ?')
     .run(descripcion, costo, estado, req.params.id);
   res.json({ ok: true });
@@ -101,6 +105,8 @@ router.patch('/trabajos/:id', authMiddleware, adminMiddleware, asyncHandler(asyn
 
 router.delete('/trabajos/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   if (!validId(req.params.id)) return res.status(400).json({ error: 'ID inválido' });
+  const trabajo = await db.prepare('SELECT id FROM trabajos WHERE id = ?').get(req.params.id);
+  if (!trabajo) return res.status(404).json({ error: 'Trabajo no encontrado' });
   await db.prepare('DELETE FROM trabajos WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 }));
@@ -123,16 +129,16 @@ router.get('/stats', authMiddleware, adminMiddleware, asyncHandler(async (req, r
   });
 }));
 
-// #12 — paginación en listado de clientes
 router.get('/clientes', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
-  res.json(await db.prepare(
+  const rows = await db.prepare(
     "SELECT id, nombre, email, telefono, suspendido, created_at FROM usuarios WHERE rol = 'cliente' ORDER BY nombre LIMIT 200"
-  ).all().then(rows => rows.map(r => ({ ...r, telefono: decrypt(r.telefono) }))));
+  ).all();
+  res.json(rows.map(r => ({ ...r, telefono: decrypt(r.telefono) })));
 }));
 
 router.patch('/clientes/:id/suspender', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   if (!validId(req.params.id)) return res.status(400).json({ error: 'ID inválido' });
-  const cliente = await db.prepare("SELECT id, rol FROM usuarios WHERE id = ? AND rol = 'cliente'").get(req.params.id);
+  const cliente = await db.prepare("SELECT id FROM usuarios WHERE id = ? AND rol = 'cliente'").get(req.params.id);
   if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
   await db.prepare('UPDATE usuarios SET suspendido = NOT COALESCE(suspendido, false) WHERE id = ?').run(req.params.id);
   const updated = await db.prepare('SELECT suspendido FROM usuarios WHERE id = ?').get(req.params.id);
@@ -142,7 +148,7 @@ router.patch('/clientes/:id/suspender', authMiddleware, adminMiddleware, asyncHa
 
 router.delete('/clientes/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   if (!validId(req.params.id)) return res.status(400).json({ error: 'ID inválido' });
-  const cliente = await db.prepare("SELECT id, rol FROM usuarios WHERE id = ? AND rol = 'cliente'").get(req.params.id);
+  const cliente = await db.prepare("SELECT id FROM usuarios WHERE id = ? AND rol = 'cliente'").get(req.params.id);
   if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
 
   const turnos = await db.prepare('SELECT id FROM turnos WHERE usuario_id = ?').all(req.params.id);
