@@ -22,16 +22,13 @@
       <button class="tab-btn" onclick="showTab('vehiculos')">🚗 Mis Vehículos</button>
     </div>
 
-    <!-- MIS TURNOS -->
     <div id="tab-turnos" class="tab-content active">
       <div id="turnosList"></div>
     </div>
 
-    <!-- RESERVAR TURNO -->
     <div id="tab-reservar" class="tab-content">
       <div class="card">
         <div class="card-title">📅 Nueva Reserva</div>
-
         <div class="form-group">
           <label class="form-label">Vehículo</label>
           <select id="resVehiculo" class="form-control">
@@ -39,29 +36,24 @@
           </select>
           <button class="btn btn-outline btn-sm" style="margin-top:0.5rem" onclick="openModal('modalVehiculo')">+ Agregar vehículo</button>
         </div>
-
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Fecha</label>
             <input type="date" id="resFecha" class="form-control" onchange="cargarHorarios()">
           </div>
         </div>
-
         <div class="form-group" id="horariosContainer" style="display:none">
           <label class="form-label">Horario disponible</label>
           <div class="horarios-grid" id="horariosGrid"></div>
         </div>
-
         <div class="form-group">
           <label class="form-label">Descripción del problema</label>
           <textarea id="resDescripcion" class="form-control" rows="3" placeholder="Ej: Cambio de aceite, revisión de frenos..."></textarea>
         </div>
-
         <button class="btn btn-primary" onclick="reservarTurno()">Confirmar reserva</button>
       </div>
     </div>
 
-    <!-- MIS VEHÍCULOS -->
     <div id="tab-vehiculos" class="tab-content">
       <div style="display:flex; justify-content:flex-end; margin-bottom:1rem">
         <button class="btn btn-primary" onclick="openModal('modalVehiculo')">+ Agregar vehículo</button>
@@ -70,7 +62,6 @@
     </div>
   </div>
 
-  <!-- MODAL VEHÍCULO -->
   <div class="modal-overlay" id="modalVehiculo">
     <div class="modal">
       <div class="modal-header">
@@ -91,7 +82,7 @@
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Año</label>
-          <input type="number" id="vAnio" class="form-control" placeholder="2020" min="1990" max="2030">
+          <input type="number" id="vAnio" class="form-control" placeholder="2020" min="1950" max="2030">
         </div>
         <div class="form-group">
           <label class="form-label">Patente</label>
@@ -111,7 +102,6 @@
 
     const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-    // Obtener CSRF token al cargar
     fetch('/api/csrf-token').then(r => r.json()).then(d => { csrfToken = d.csrfToken; });
 
     const headers = () => ({
@@ -119,16 +109,7 @@
       'Authorization': `Bearer ${token}`,
       'X-CSRF-Token': csrfToken
     });
-      if (!token) { window.location.replace('/'); return false; }
-      const res = await fetch(`${API}/turnos/vehiculos`, { headers: { 'Authorization': `Bearer ${token}` } });
-      if (res.status === 401) { localStorage.clear(); window.location.replace('/'); return false; }
-      return true;
-    }
 
-    if (user.rol === 'admin') window.location.replace('/admin');
-    document.getElementById('navUser').textContent = `Hola, ${user.nombre}`;
-
-    // Verificar sesion activa con el servidor
     async function verificarSesion() {
       if (!token) { window.location.replace('/'); return false; }
       const res = await fetch(`${API}/turnos/vehiculos`, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -145,7 +126,6 @@
         if (res.status === 401) { localStorage.clear(); window.location.replace('/'); return null; }
         return res.json();
       } catch {
-        console.error('Error de red:', url);
         alert('Error de conexión. Verificá tu internet e intentá nuevamente.');
         return null;
       }
@@ -163,13 +143,8 @@
 
     function openModal(id) { document.getElementById(id).classList.add('open'); }
     function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+    function logout() { localStorage.clear(); window.location.href = '/'; }
 
-    function logout() {
-      localStorage.clear();
-      window.location.href = '/';
-    }
-
-    // ── TURNOS ──
     async function cargarTurnos() {
       const turnos = await apiFetch('/turnos/mis-turnos');
       if (!turnos) return;
@@ -200,15 +175,12 @@
       cargarTurnos();
     }
 
-    // ── RESERVAR ──
     async function cargarVehiculosSelect() {
       const vehiculos = await apiFetch('/turnos/vehiculos');
       if (!vehiculos) return;
       const sel = document.getElementById('resVehiculo');
       sel.innerHTML = '<option value="">Seleccioná un vehículo</option>' +
-        vehiculos.map(v => `<option value="${v.id}">${v.marca} ${v.modelo} (${v.patente})</option>`).join('');
-
-      // Fecha mínima = mañana
+        vehiculos.map(v => `<option value="${v.id}">${esc(v.marca)} ${esc(v.modelo)} (${esc(v.patente)})</option>`).join('');
       const manana = new Date();
       manana.setDate(manana.getDate() + 1);
       document.getElementById('resFecha').min = manana.toISOString().split('T')[0];
@@ -219,14 +191,12 @@
       if (!fecha) return;
       const data = await apiFetch(`/turnos/disponibilidad/${fecha}`);
       if (!data) return;
-
       const todosHorarios = ['08:00','09:00','10:00','11:00','12:00','14:00','15:00','16:00','17:00','18:00'];
       horaSeleccionada = null;
       document.getElementById('horariosContainer').style.display = 'block';
       document.getElementById('horariosGrid').innerHTML = todosHorarios.map(h => {
         const disponible = data.disponibles.includes(h);
-        return `<button class="horario-btn ${disponible ? '' : 'ocupado'}" 
-          onclick="${disponible ? `seleccionarHora('${h}', this)` : ''}">${h}</button>`;
+        return `<button class="horario-btn ${disponible ? '' : 'ocupado'}" onclick="${disponible ? `seleccionarHora('${h}', this)` : ''}">${h}</button>`;
       }).join('');
     }
 
@@ -240,25 +210,20 @@
       const vehiculo_id = document.getElementById('resVehiculo').value;
       const fecha = document.getElementById('resFecha').value;
       const descripcion = document.getElementById('resDescripcion').value.trim();
-
       if (!vehiculo_id) return alert('Seleccioná un vehículo');
       if (!fecha) return alert('Seleccioná una fecha');
       if (!horaSeleccionada) return alert('Seleccioná un horario');
       if (!descripcion) return alert('Describí el problema');
-
       const res = await apiFetch('/turnos', {
         method: 'POST',
         body: JSON.stringify({ vehiculo_id, fecha, hora: horaSeleccionada, descripcion })
       });
       if (res?.id) {
         alert('✅ ¡Turno reservado con éxito!');
-        showTab('turnos');
-        document.querySelectorAll('.tab-btn')[0].classList.add('active');
-        document.querySelectorAll('.tab-btn')[1].classList.remove('active');
+        document.querySelectorAll('.tab-btn')[0].click();
       }
     }
 
-    // ── VEHÍCULOS ──
     async function cargarVehiculos() {
       const vehiculos = await apiFetch('/turnos/vehiculos');
       if (!vehiculos) return;
@@ -288,22 +253,18 @@
       const modelo = document.getElementById('vModelo').value.trim();
       const anio = document.getElementById('vAnio').value;
       const patente = document.getElementById('vPatente').value.trim().toUpperCase();
-
       if (!marca || !modelo || !patente) {
         document.getElementById('vehiculoAlert').innerHTML = '<div class="alert alert-error">Completá los campos obligatorios</div>';
         return;
       }
-
       const res = await apiFetch('/turnos/vehiculos', {
         method: 'POST',
         body: JSON.stringify({ marca, modelo, anio, patente })
       });
-
       if (res?.error) {
-        document.getElementById('vehiculoAlert').innerHTML = `<div class="alert alert-error">${res.error}</div>`;
+        document.getElementById('vehiculoAlert').innerHTML = `<div class="alert alert-error">${esc(res.error)}</div>`;
         return;
       }
-
       closeModal('modalVehiculo');
       document.getElementById('vehiculoAlert').innerHTML = '';
       ['vMarca','vModelo','vAnio','vPatente'].forEach(id => document.getElementById(id).value = '');
@@ -311,19 +272,16 @@
       cargarVehiculosSelect();
     }
 
-    // ── PUSH NOTIFICATIONS ──
     async function registrarPush() {
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
       try {
         const reg = await navigator.serviceWorker.register('/sw.js');
         const perm = await Notification.requestPermission();
         if (perm !== 'granted') return;
-
         const sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array('BKD9-Xk7lp0ZeZwidkxG7mxO6bo_hByTwFbf9FRdxWeQBOgjfSRMlQlCrtRk0wR0s0po2njt2GlEp_40c7vBAEA')
         });
-
         await fetch(`${API}/auth/push-subscription`, {
           method: 'POST',
           headers: headers(),
@@ -349,7 +307,6 @@
       return labels[estado] || estado;
     }
 
-    // Init
     verificarSesion().then(ok => { if (ok) { cargarTurnos(); registrarPush(); } });
   </script>
 </body>

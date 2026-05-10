@@ -67,11 +67,10 @@ app.get('/api/csrf-token', (req, res) => {
 
 const csrfMiddleware = (req, res, next) => {
   if (!['POST','PATCH','DELETE'].includes(String(req.method))) return next();
-  // Rutas públicas exentas de CSRF (usan JWT como protección)
-  const exemptPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/google'];
-  if (exemptPaths.includes(req.path)) return next();
+  const exemptPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/google', '/api/auth/update-telefono', '/api/auth/push-subscription'];
+  if (exemptPaths.some(p => req.path === p || req.originalUrl.startsWith(p))) return next();
   const token = req.headers['x-csrf-token'];
-  const entry = token ? csrfTokens.get(token) : null;
+  const entry = token ? csrfTokens.get(String(token)) : null;
   if (!entry || entry.expires < Date.now()) {
     return res.status(403).json({ error: 'Token CSRF inválido o expirado' });
   }
