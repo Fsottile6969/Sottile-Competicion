@@ -35,6 +35,8 @@ router.post('/register', async (req, res) => {
   if (!isValidEmail(email)) return res.status(400).json({ error: 'Email inválido' });
   if (password.length < 6 || password.length > 100) return res.status(400).json({ error: 'Contraseña debe tener entre 6 y 100 caracteres' });
 
+  if (!telefono) return res.status(400).json({ error: 'El teléfono es obligatorio' });
+
   const existe = await db.prepare('SELECT id FROM usuarios WHERE email = ?').get(email);
   if (existe) return res.status(409).json({ error: 'El email ya está registrado' });
 
@@ -63,7 +65,6 @@ router.post('/login', async (req, res) => {
     return res.status(401).json({ error: 'Credenciales inválidas' });
   }
   if (user.suspendido) return res.status(403).json({ error: 'Tu cuenta está suspendida. Contactá al taller.' });
-
   res.json({ token: signToken(user), user: { id: user.id, nombre: user.nombre, rol: user.rol } });
 });
 
@@ -97,7 +98,14 @@ router.post('/google', async (req, res) => {
 
   if (user.suspendido) return res.status(403).json({ error: 'Tu cuenta está suspendida. Contactá al taller.' });
 
-  res.json({ token: signToken(user), user: { id: user.id, nombre: user.nombre, rol: user.rol } });
+  res.json({ token: signToken(user), user: { id: user.id, nombre: user.nombre, rol: user.rol }, sinTelefono: !user.telefono });
+});
+
+router.post('/update-telefono', authMiddleware, async (req, res) => {
+  const telefono = sanitize(req.body.telefono);
+  if (!telefono) return res.status(400).json({ error: 'Teléfono requerido' });
+  await db.prepare('UPDATE usuarios SET telefono = ? WHERE id = ?').run(encrypt(telefono), req.user.id);
+  res.json({ ok: true });
 });
 
 router.post('/push-subscription', authMiddleware, async (req, res) => {

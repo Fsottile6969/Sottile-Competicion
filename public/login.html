@@ -47,22 +47,21 @@
 
       <!-- REGISTER -->
       <div id="registerForm" style="display:none">
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Nombre completo</label>
-            <input type="text" id="regNombre" class="form-control" placeholder="Juan Pérez">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Teléfono</label>
-            <input type="tel" id="regTelefono" class="form-control" placeholder="+54 9 11...">
-          </div>
+        <div class="form-group">
+          <label class="form-label">Nombre completo *</label>
+          <input type="text" id="regNombre" class="form-control" placeholder="Juan Pérez">
         </div>
         <div class="form-group">
-          <label class="form-label">Email</label>
+          <label class="form-label">Teléfono *</label>
+          <input type="tel" id="regTelefono" class="form-control" placeholder="+54 9 11 1234-5678">
+          <small style="color:#6c757d;font-size:0.78rem">Lo usamos para contactarte sobre tu turno</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email *</label>
           <input type="email" id="regEmail" class="form-control" placeholder="tu@email.com">
         </div>
         <div class="form-group">
-          <label class="form-label">Contraseña</label>
+          <label class="form-label">Contraseña *</label>
           <input type="password" id="regPassword" class="form-control" placeholder="Mínimo 6 caracteres">
         </div>
         <button class="btn btn-primary btn-block" onclick="register()">Crear cuenta</button>
@@ -73,6 +72,17 @@
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="Google">
           Continuar con Google
         </button>
+      </div>
+
+      <!-- COMPLETAR TELEFONO (Google sin teléfono) -->
+      <div id="telefonoForm" style="display:none">
+        <div class="alert alert-success" style="margin-bottom:1rem">✅ ¡Cuenta de Google verificada! Solo falta tu teléfono.</div>
+        <div class="form-group">
+          <label class="form-label">Teléfono *</label>
+          <input type="tel" id="googleTelefono" class="form-control" placeholder="+54 9 11 1234-5678">
+          <small style="color:#6c757d;font-size:0.78rem">Lo usamos para contactarte sobre tu turno</small>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="guardarTelefonoGoogle()">Continuar</button>
       </div>
     </div>
   </div>
@@ -115,12 +125,15 @@
       saveSession(data);
     }
 
+    let pendingGoogleData = null;
+
     async function register() {
       const nombre = document.getElementById('regNombre').value.trim();
       const email = document.getElementById('regEmail').value.trim();
       const password = document.getElementById('regPassword').value;
       const telefono = document.getElementById('regTelefono').value.trim();
       if (!nombre || !email || !password) return showAlert('Completá los campos obligatorios');
+      if (!telefono) return showAlert('El teléfono es obligatorio para poder contactarte');
       if (password.length < 6) return showAlert('La contraseña debe tener al menos 6 caracteres');
 
       const res = await fetch(`${API}/auth/register`, {
@@ -144,10 +157,33 @@
           });
           const data = await res.json();
           if (!res.ok) return showAlert(data.error);
+
+          // Si el usuario no tiene teléfono, pedirlo antes de continuar
+          if (data.sinTelefono) {
+            pendingGoogleData = data;
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('telefonoForm').style.display = 'block';
+            document.querySelectorAll('.auth-tab').forEach(t => t.style.display = 'none');
+            return;
+          }
           saveSession(data);
         }
       });
       google.accounts.id.prompt();
+    }
+
+    async function guardarTelefonoGoogle() {
+      const telefono = document.getElementById('googleTelefono').value.trim();
+      if (!telefono) return showAlert('El teléfono es obligatorio');
+
+      const res = await fetch(`${API}/auth/update-telefono`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${pendingGoogleData.token}` },
+        body: JSON.stringify({ telefono })
+      });
+      if (!res.ok) return showAlert('Error al guardar el teléfono');
+      saveSession(pendingGoogleData);
     }
 
     // Redirigir si ya está logueado
