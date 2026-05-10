@@ -191,10 +191,20 @@
       saveSession(pendingGoogleData);
     }
 
-    // Redirigir si ya está logueado
+    // Redirigir si ya está logueado (solo clientes, no admin)
     if (localStorage.getItem('token')) {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      window.location.href = user.rol === 'admin' ? '/admin' : '/cliente';
+      const u = JSON.parse(localStorage.getItem('user') || '{}');
+      if (u.rol === 'admin') {
+        // Admin ya logueado: mostrar opción de ir al panel o cerrar sesión
+        document.getElementById('alertBox').innerHTML = `
+          <div class="alert alert-success" style="text-align:center">
+            Sesión activa como <strong>${u.nombre}</strong> (Admin)<br>
+            <a href="/admin" class="btn btn-secondary btn-sm" style="margin-top:0.5rem;display:inline-flex">Ir al panel admin</a>
+            <button onclick="localStorage.clear();location.reload()" class="btn btn-outline btn-sm" style="margin-top:0.5rem">Cerrar sesión</button>
+          </div>`;
+      } else {
+        window.location.href = '/cliente';
+      }
     }
 
     // Enter para login
