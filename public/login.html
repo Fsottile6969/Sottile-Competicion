@@ -137,11 +137,10 @@
       google.accounts.id.initialize({
         client_id: '247962980061-uruj4rahe231ee92fk0h73cec49c59hi.apps.googleusercontent.com',
         callback: async (response) => {
-          const payload = JSON.parse(atob(response.credential.split('.')[1]));
           const res = await fetch(`${API}/auth/google`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ google_id: payload.sub, email: payload.email, nombre: payload.name })
+            body: JSON.stringify({ credential: response.credential })
           });
           const data = await res.json();
           if (!res.ok) return showAlert(data.error);

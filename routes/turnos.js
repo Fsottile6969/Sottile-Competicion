@@ -4,6 +4,7 @@ const { db } = require('../database');
 const { authMiddleware } = require('../middleware');
 const { enviarNotificacion } = require('../notifications');
 
+const sanitize = (str) => (str || '').toString().trim().slice(0, 500);
 const HORARIOS = ['08:00','09:00','10:00','11:00','12:00','14:00','15:00','16:00','17:00','18:00'];
 
 router.get('/disponibilidad/:fecha', authMiddleware, async (req, res) => {
@@ -15,9 +16,15 @@ router.get('/disponibilidad/:fecha', authMiddleware, async (req, res) => {
 });
 
 router.post('/', authMiddleware, async (req, res) => {
-  const { vehiculo_id, fecha, hora, descripcion } = req.body;
+  const vehiculo_id = parseInt(req.body.vehiculo_id);
+  const fecha = sanitize(req.body.fecha);
+  const hora = sanitize(req.body.hora);
+  const descripcion = sanitize(req.body.descripcion);
+
   if (!vehiculo_id || !fecha || !hora || !descripcion)
     return res.status(400).json({ error: 'Campos requeridos' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return res.status(400).json({ error: 'Fecha inválida' });
+  if (!HORARIOS.includes(hora)) return res.status(400).json({ error: 'Horario inválido' });
 
   const ocupado = await db.prepare(
     "SELECT id FROM turnos WHERE fecha = ? AND hora = ? AND estado != 'cancelado'"
@@ -79,15 +86,20 @@ router.get('/vehiculos', authMiddleware, async (req, res) => {
 });
 
 router.post('/vehiculos', authMiddleware, async (req, res) => {
-  const { marca, modelo, anio, patente } = req.body;
-  if (!marca || !modelo || !patente) return res.status(400).json({ error: 'Campos requeridos' });
+  const marca = sanitize(req.body.marca);
+  const modelo = sanitize(req.body.modelo);
+  const anio = parseInt(req.body.anio) || null;
+  const patente = sanitize(req.body.patente).toUpperCase();
 
-  const existe = await db.prepare('SELECT id FROM vehiculos WHERE patente = ?').get(patente.toUpperCase());
+  if (!marca || !modelo || !patente) return res.status(400).json({ error: 'Campos requeridos' });
+  if (!/^[A-Z0-9]{6,7}$/.test(patente)) return res.status(400).json({ error: 'Patente inválida' });
+
+  const existe = await db.prepare('SELECT id FROM vehiculos WHERE patente = ?').get(patente);
   if (existe) return res.status(409).json({ error: 'Patente ya registrada' });
 
   const result = await db.prepare(
     'INSERT INTO vehiculos (usuario_id, marca, modelo, anio, patente) VALUES (?, ?, ?, ?, ?)'
-  ).run(req.user.id, marca, modelo, anio || null, patente.toUpperCase());
+  ).run(req.user.id, marca, modelo, anio, patente);
 
   res.json(await db.prepare('SELECT * FROM vehiculos WHERE id = ?').get(result.lastInsertRowid));
 });
