@@ -389,7 +389,7 @@
         if (perm !== 'granted') return;
         const sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array('BKD9-Xk7lp0ZeZwidkxG7mxO6bo_hByTwFbf9FRdxWeQBOgjfSRMlQlCrtRk0wR0s0po2njt2GlEp_40c7vBAEA')
+          applicationServerKey: urlBase64ToUint8Array('BFP1cT3IPNxQPnekJjhPkM-WmaZ-HG-0xHmOEoChcgTst6Dr3BmVSZQAFFBgcscghkvUutrSG9kp_SNu_JohRSE')
         });
         await fetch(`${API}/auth/push-subscription`, {
           method: 'POST', headers: headers(), body: JSON.stringify({ subscription: sub })
