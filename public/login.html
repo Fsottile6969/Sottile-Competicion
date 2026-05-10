@@ -35,10 +35,8 @@
         </div>
         <button class="btn btn-primary btn-block" onclick="login()">Ingresar</button>
         <div class="divider">o continuá con</div>
-        <button class="btn btn-google" onclick="loginGoogle()">
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="Google">
-          Continuar con Google
-        </button>
+        <div class="divider">o continuá con</div>
+        <div id="googleBtnLogin" style="display:flex;justify-content:center"></div>
       </div>
 
       <!-- REGISTER -->
@@ -62,10 +60,7 @@
         </div>
         <button class="btn btn-primary btn-block" onclick="register()">Crear cuenta</button>
         <div class="divider">o continuá con</div>
-        <button class="btn btn-google" onclick="loginGoogle()">
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="Google">
-          Continuar con Google
-        </button>
+        <div id="googleBtnRegister" style="display:flex;justify-content:center"></div>
       </div>
 
       <!-- COMPLETAR TELEFONO -->
@@ -81,7 +76,7 @@
     </div>
   </div>
 
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://accounts.google.com/gsi/client" async defer onload="window.onGoogleLibraryLoad && window.onGoogleLibraryLoad()"></script>
   <script>
     const API = '/api';
     let pendingGoogleData = null;
@@ -155,30 +150,26 @@
       saveSession(data);
     }
 
-    function loginGoogle() {
+    function initGoogleButtons(googleClientId) {
+      google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: handleGoogleCredential,
+        ux_mode: 'popup'
+      });
+      const cfg = { theme: 'outline', size: 'large', width: 300, locale: 'es' };
+      google.accounts.id.renderButton(document.getElementById('googleBtnLogin'), cfg);
+      google.accounts.id.renderButton(document.getElementById('googleBtnRegister'), cfg);
+    }
+
+    // Inicializar botones Google cuando el script cargue
+    window.onGoogleLibraryLoad = function() {
       fetch('/api/auth/config')
         .then(r => r.json())
         .then(({ googleClientId }) => {
-          if (!googleClientId) return showAlert('Google Login no configurado.');
-          google.accounts.id.initialize({
-            client_id: googleClientId,
-            callback: handleGoogleCredential,
-            ux_mode: 'popup'
-          });
-          google.accounts.id.prompt((notification) => {
-            if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-              // Fallback: renderizar botón en un div temporal
-              const div = document.createElement('div');
-              div.id = 'g_id_temp';
-              div.style.display = 'none';
-              document.body.appendChild(div);
-              google.accounts.id.renderButton(div, { theme: 'outline', size: 'large' });
-              div.querySelector('[role=button]')?.click();
-            }
-          });
+          if (googleClientId) initGoogleButtons(googleClientId);
         })
-        .catch(() => showAlert('Error al conectar con Google. Intentá nuevamente.'));
-    }
+        .catch(() => {});
+    };
 
     async function guardarTelefonoGoogle() {
       const telefono = document.getElementById('googleTelefono').value.trim();
