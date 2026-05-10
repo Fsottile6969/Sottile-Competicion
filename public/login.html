@@ -10,7 +10,9 @@
   <div class="auth-page">
     <div class="auth-card">
       <div class="auth-logo">
-        <h1>🔧 Sottile-<span>Competicion</span></h1>
+        <a href="/" style="text-decoration:none">
+          <h1>🔧 Sottile-<span>Competicion</span></h1>
+        </a>
         <p>+15 años de experiencia a tu servicio</p>
       </div>
 
@@ -132,21 +134,7 @@
     }
 
     function loginGoogle() {
-      google.accounts.id.initialize({
-        client_id: 'TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com',
-        callback: async (response) => {
-          const payload = JSON.parse(atob(response.credential.split('.')[1]));
-          const res = await fetch(`${API}/auth/google`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ google_id: payload.sub, email: payload.email, nombre: payload.name })
-          });
-          const data = await res.json();
-          if (!res.ok) return showAlert(data.error);
-          saveSession(data);
-        }
-      });
-      google.accounts.id.prompt();
+      showAlert('El login con Google no está configurado aún. Usá email y contraseña.', 'error');
     }
 
     // Redirigir si ya está logueado
