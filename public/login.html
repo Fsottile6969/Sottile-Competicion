@@ -136,32 +136,46 @@
       saveSession(data);
     }
 
+    async function handleGoogleCredential(response) {
+      const res = await fetch(`${API}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: response.credential })
+      });
+      const data = await res.json();
+      if (!res.ok) return showAlert(data.error);
+      if (data.sinTelefono) {
+        pendingGoogleData = data;
+        document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('registerForm').style.display = 'none';
+        document.getElementById('telefonoForm').style.display = 'block';
+        document.querySelectorAll('.auth-tab').forEach(t => t.style.display = 'none');
+        return;
+      }
+      saveSession(data);
+    }
+
     function loginGoogle() {
       fetch('/api/auth/config')
         .then(r => r.json())
         .then(({ googleClientId }) => {
+          if (!googleClientId) return showAlert('Google Login no configurado.');
           google.accounts.id.initialize({
             client_id: googleClientId,
-            callback: async (response) => {
-              const res = await fetch(`${API}/auth/google`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ credential: response.credential })
-              });
-              const data = await res.json();
-              if (!res.ok) return showAlert(data.error);
-              if (data.sinTelefono) {
-                pendingGoogleData = data;
-                document.getElementById('loginForm').style.display = 'none';
-                document.getElementById('registerForm').style.display = 'none';
-                document.getElementById('telefonoForm').style.display = 'block';
-                document.querySelectorAll('.auth-tab').forEach(t => t.style.display = 'none');
-                return;
-              }
-              saveSession(data);
+            callback: handleGoogleCredential,
+            ux_mode: 'popup'
+          });
+          google.accounts.id.prompt((notification) => {
+            if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+              // Fallback: renderizar botón en un div temporal
+              const div = document.createElement('div');
+              div.id = 'g_id_temp';
+              div.style.display = 'none';
+              document.body.appendChild(div);
+              google.accounts.id.renderButton(div, { theme: 'outline', size: 'large' });
+              div.querySelector('[role=button]')?.click();
             }
           });
-          google.accounts.id.prompt();
         })
         .catch(() => showAlert('Error al conectar con Google. Intentá nuevamente.'));
     }
@@ -178,19 +192,10 @@
       saveSession(pendingGoogleData);
     }
 
-    // Si ya está logueado
+    // Si ya está logueado, redirigir directamente
     if (localStorage.getItem('token')) {
       const u = JSON.parse(localStorage.getItem('user') || '{}');
-      if (u.rol === 'admin') {
-        document.getElementById('alertBox').innerHTML = `
-          <div class="alert alert-success" style="text-align:center">
-            Sesión activa como <strong>${u.nombre}</strong> (Admin)<br>
-            <a href="/admin" class="btn btn-secondary btn-sm" style="margin-top:0.5rem;display:inline-flex">Ir al panel admin</a>
-            <button onclick="localStorage.clear();location.reload()" class="btn btn-outline btn-sm" style="margin-top:0.5rem">Cerrar sesión</button>
-          </div>`;
-      } else {
-        window.location.href = '/cliente';
-      }
+      window.location.href = u.rol === 'admin' ? '/admin' : '/cliente';
     }
 
     document.addEventListener('keydown', (e) => {
