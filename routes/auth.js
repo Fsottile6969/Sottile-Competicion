@@ -44,9 +44,14 @@ router.post('/login', async (req, res) => {
   if (!email || !password) return res.status(400).json({ error: 'Campos requeridos' });
 
   const user = await db.prepare('SELECT * FROM usuarios WHERE email = ?').get(email);
-  // Mismo mensaje para no revelar si el email existe
-  if (!user || !user.password) return res.status(401).json({ error: 'Credenciales inválidas' });
-  if (!bcrypt.compareSync(password, user.password)) return res.status(401).json({ error: 'Credenciales inválidas' });
+  if (!user || !user.password) {
+    console.warn(`[LOGIN FALLIDO] email=${email} ip=${req.ip}`);
+    return res.status(401).json({ error: 'Credenciales inválidas' });
+  }
+  if (!bcrypt.compareSync(password, user.password)) {
+    console.warn(`[LOGIN FALLIDO] email=${email} ip=${req.ip}`);
+    return res.status(401).json({ error: 'Credenciales inválidas' });
+  }
 
   res.json({ token: signToken(user), user: { id: user.id, nombre: user.nombre, rol: user.rol } });
 });

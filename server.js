@@ -7,6 +7,11 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const { db } = require('./database');
 
+// Validar variables de entorno críticas al arrancar
+const requiredEnv = ['JWT_SECRET', 'ADMIN_EMAIL', 'ADMIN_PASSWORD', 'GOOGLE_CLIENT_ID'];
+requiredEnv.forEach(key => { if (!process.env[key]) { console.error(`❌ Falta variable de entorno: ${key}`); process.exit(1); } });
+if (process.env.JWT_SECRET.length < 32) { console.error('❌ JWT_SECRET debe tener al menos 32 caracteres'); process.exit(1); }
+
 const app = express();
 
 // Seguridad HTTP headers
@@ -21,6 +26,14 @@ app.use(cors({
   methods: ['GET','POST','PATCH','DELETE'],
   allowedHeaders: ['Content-Type','Authorization']
 }));
+
+// Forzar HTTPS en producción
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'production' && req.headers['x-forwarded-proto'] !== 'https') {
+    return res.redirect(301, `https://${req.headers.host}${req.url}`);
+  }
+  next();
+});
 
 // Rate limiting global
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false }));
