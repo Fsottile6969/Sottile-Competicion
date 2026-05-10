@@ -61,9 +61,11 @@ const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, standardHeade
 
 app.use(express.json({ limit: '10kb' }));
 
-// #10 — validar Content-Type en requests con body
+// Validar Content-Type en requests con body
 app.use((req, res, next) => {
-  if (['POST','PATCH'].includes(req.method) && req.headers['content-type'] && !req.headers['content-type'].includes('application/json')) {
+  const method = String(req.method);
+  const contentType = String(req.headers['content-type'] || '');
+  if (['POST','PATCH'].includes(method) && contentType && !contentType.includes('application/json')) {
     return res.status(415).json({ error: 'Content-Type debe ser application/json' });
   }
   next();

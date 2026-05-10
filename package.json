@@ -1,7 +1,7 @@
 {
-  "name": "taller-mecanico",
+  "name": "@sottile/taller-mecanico",
   "version": "1.0.0",
-  "description": "Sistema de gestión para taller mecánico",
+  "description": "Sistema de gestión para taller mecánico Sottile-Competicion",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
