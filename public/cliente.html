@@ -108,6 +108,9 @@
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     let horaSeleccionada = null;
 
+    // #4 — escapar HTML para prevenir XSS
+    const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
     // Verificar sesion activa con el servidor
     async function verificarSesion() {
       if (!token) { window.location.replace('/'); return false; }
@@ -155,15 +158,15 @@
         return;
       }
       container.innerHTML = turnos.map(t => `
-        <div class="turno-card ${t.estado}">
+        <div class="turno-card ${esc(t.estado)}">
           <div class="turno-info">
-            <h4>${t.marca} ${t.modelo} — ${t.patente}</h4>
-            <p>📅 ${formatFecha(t.fecha)} a las ${t.hora}</p>
-            <p>📝 ${t.descripcion}</p>
-            ${t.notas_admin ? `<p style="color:#457b9d;margin-top:0.3rem">💬 Taller: ${t.notas_admin}</p>` : ''}
+            <h4>${esc(t.marca)} ${esc(t.modelo)} — ${esc(t.patente)}</h4>
+            <p>📅 ${formatFecha(t.fecha)} a las ${esc(t.hora)}</p>
+            <p>📝 ${esc(t.descripcion)}</p>
+            ${t.notas_admin ? `<p style="color:#457b9d;margin-top:0.3rem">💬 Taller: ${esc(t.notas_admin)}</p>` : ''}
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.5rem">
-            <span class="badge badge-${t.estado}">${estadoLabel(t.estado)}</span>
+            <span class="badge badge-${esc(t.estado)}">${estadoLabel(t.estado)}</span>
             ${t.estado === 'pendiente' ? `<button class="btn btn-danger btn-sm" onclick="cancelarTurno(${t.id})">Cancelar</button>` : ''}
           </div>
         </div>
@@ -249,10 +252,10 @@
             <thead><tr><th>Marca</th><th>Modelo</th><th>Año</th><th>Patente</th></tr></thead>
             <tbody>${vehiculos.map(v => `
               <tr>
-                <td>${v.marca}</td>
-                <td>${v.modelo}</td>
-                <td>${v.anio || '-'}</td>
-                <td><strong>${v.patente}</strong></td>
+                <td>${esc(v.marca)}</td>
+                <td>${esc(v.modelo)}</td>
+                <td>${esc(v.anio || '-')}</td>
+                <td><strong>${esc(v.patente)}</strong></td>
               </tr>`).join('')}
             </tbody>
           </table>

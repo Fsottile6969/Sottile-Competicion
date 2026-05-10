@@ -5,13 +5,21 @@ const { authMiddleware, adminMiddleware } = require('../middleware');
 const { enviarNotificacion } = require('../notifications');
 const { decrypt } = require('../crypto');
 
-// Descifra telefono en un array de objetos
+// #2 — wrapper async
+const asyncHandler = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+const ESTADOS_VALIDOS = ['pendiente', 'en_proceso', 'terminado', 'cancelado'];
+
 function decryptTelefono(rows) {
   return rows.map(r => ({ ...r, telefono: decrypt(r.telefono) }));
 }
 
-router.get('/turnos', authMiddleware, adminMiddleware, async (req, res) => {
-  const { fecha, estado } = req.query;
+// #12 — paginación en listado de turnos
+router.get('/turnos', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
+  const { fecha, estado, page = 1 } = req.query;
+  const limit = 50;
+  const offset = (Math.max(1, parseInt(page)) - 1) * limit;
+
   let query = `
     SELECT t.*, v.marca, v.modelo, v.patente, u.nombre, u.email, u.telefono
     FROM turnos t
@@ -21,14 +29,19 @@ router.get('/turnos', authMiddleware, adminMiddleware, async (req, res) => {
   `;
   const params = [];
   if (fecha) { params.push(fecha); query += ` AND t.fecha = $${params.length}`; }
-  if (estado) { params.push(estado); query += ` AND t.estado = $${params.length}`; }
-  query += ' ORDER BY t.fecha ASC, t.hora ASC';
+  if (estado && ESTADOS_VALIDOS.includes(estado)) { params.push(estado); query += ` AND t.estado = $${params.length}`; }
+  query += ` ORDER BY t.fecha ASC, t.hora ASC LIMIT ${limit} OFFSET ${offset}`;
   const { rows } = await pool.query(query, params);
   res.json(decryptTelefono(rows));
-});
+}));
 
-router.patch('/turnos/:id', authMiddleware, adminMiddleware, async (req, res) => {
+router.patch('/turnos/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   const { estado, notas_admin } = req.body;
+
+  // #1 — validar estado contra lista permitida
+  if (estado && !ESTADOS_VALIDOS.includes(estado))
+    return res.status(400).json({ error: 'Estado inválido' });
+
   const turno = await db.prepare(`
     SELECT t.*, u.push_subscription, u.nombre, v.patente
     FROM turnos t
@@ -46,41 +59,45 @@ router.patch('/turnos/:id', authMiddleware, adminMiddleware, async (req, res) =>
     await enviarNotificacion(JSON.parse(turno.push_subscription), {
       title: '🎉 ¡Tu vehículo está listo!',
       body: `El ${turno.patente} ya puede ser retirado del taller.`,
-      url: '/cliente.html'
+      url: '/cliente'
     });
   }
 
   res.json({ ok: true });
-});
+}));
 
-router.get('/turnos/:id/trabajos', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/turnos/:id/trabajos', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   res.json(await db.prepare('SELECT * FROM trabajos WHERE turno_id = ?').all(req.params.id));
-});
+}));
 
-router.post('/turnos/:id/trabajos', authMiddleware, adminMiddleware, async (req, res) => {
-  const { descripcion, costo } = req.body;
+router.post('/turnos/:id/trabajos', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
+  const descripcion = (req.body.descripcion || '').toString().trim().slice(0, 500);
+  const costo = parseFloat(req.body.costo) || 0;
   if (!descripcion) return res.status(400).json({ error: 'Descripción requerida' });
+  if (costo < 0) return res.status(400).json({ error: 'Costo inválido' });
   const result = await db.prepare(
     'INSERT INTO trabajos (turno_id, descripcion, costo) VALUES (?, ?, ?)'
-  ).run(req.params.id, descripcion, costo || 0);
+  ).run(req.params.id, descripcion, costo);
   res.json(await db.prepare('SELECT * FROM trabajos WHERE id = ?').get(result.lastInsertRowid));
-});
+}));
 
-router.patch('/trabajos/:id', authMiddleware, adminMiddleware, async (req, res) => {
-  const { descripcion, costo, estado } = req.body;
+router.patch('/trabajos/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   const trabajo = await db.prepare('SELECT * FROM trabajos WHERE id = ?').get(req.params.id);
   if (!trabajo) return res.status(404).json({ error: 'Trabajo no encontrado' });
+  const descripcion = (req.body.descripcion || trabajo.descripcion).toString().trim().slice(0, 500);
+  const costo = req.body.costo !== undefined ? parseFloat(req.body.costo) : trabajo.costo;
+  const estado = req.body.estado && ESTADOS_VALIDOS.includes(req.body.estado) ? req.body.estado : trabajo.estado;
   await db.prepare('UPDATE trabajos SET descripcion = ?, costo = ?, estado = ? WHERE id = ?')
-    .run(descripcion ?? trabajo.descripcion, costo ?? trabajo.costo, estado ?? trabajo.estado, req.params.id);
+    .run(descripcion, costo, estado, req.params.id);
   res.json({ ok: true });
-});
+}));
 
-router.delete('/trabajos/:id', authMiddleware, adminMiddleware, async (req, res) => {
+router.delete('/trabajos/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   await db.prepare('DELETE FROM trabajos WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
-});
+}));
 
-router.get('/stats', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/stats', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   const hoy = new Date().toISOString().split('T')[0];
   const [turnosHoy, pendientes, enProceso, terminados, clientes] = await Promise.all([
     db.prepare("SELECT COUNT(*) as c FROM turnos WHERE fecha = ? AND estado != 'cancelado'").get(hoy),
@@ -96,28 +113,28 @@ router.get('/stats', authMiddleware, adminMiddleware, async (req, res) => {
     terminados: Number(terminados.c),
     clientes: Number(clientes.c),
   });
-});
+}));
 
-router.get('/clientes', authMiddleware, adminMiddleware, async (req, res) => {
+// #12 — paginación en listado de clientes
+router.get('/clientes', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   res.json(await db.prepare(
-    "SELECT id, nombre, email, telefono, suspendido, created_at FROM usuarios WHERE rol = 'cliente' ORDER BY nombre"
+    "SELECT id, nombre, email, telefono, suspendido, created_at FROM usuarios WHERE rol = 'cliente' ORDER BY nombre LIMIT 200"
   ).all().then(rows => rows.map(r => ({ ...r, telefono: decrypt(r.telefono) }))));
-});
+}));
 
-router.patch('/clientes/:id/suspender', authMiddleware, adminMiddleware, async (req, res) => {
+router.patch('/clientes/:id/suspender', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   const cliente = await db.prepare("SELECT id, rol FROM usuarios WHERE id = ? AND rol = 'cliente'").get(req.params.id);
   if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
   await db.prepare('UPDATE usuarios SET suspendido = NOT COALESCE(suspendido, false) WHERE id = ?').run(req.params.id);
   const updated = await db.prepare('SELECT suspendido FROM usuarios WHERE id = ?').get(req.params.id);
   console.warn(`[ADMIN] cliente_id=${req.params.id} ${updated.suspendido ? 'SUSPENDIDO' : 'REACTIVADO'} por admin_id=${req.user.id}`);
   res.json({ ok: true, suspendido: updated.suspendido });
-});
+}));
 
-router.delete('/clientes/:id', authMiddleware, adminMiddleware, async (req, res) => {
+router.delete('/clientes/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   const cliente = await db.prepare("SELECT id, rol FROM usuarios WHERE id = ? AND rol = 'cliente'").get(req.params.id);
   if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
 
-  // Borrar en orden para respetar foreign keys
   const turnos = await db.prepare('SELECT id FROM turnos WHERE usuario_id = ?').all(req.params.id);
   for (const t of turnos) {
     await db.prepare('DELETE FROM trabajos WHERE turno_id = ?').run(t.id);
@@ -128,6 +145,6 @@ router.delete('/clientes/:id', authMiddleware, adminMiddleware, async (req, res)
 
   console.warn(`[ADMIN] cliente_id=${req.params.id} ELIMINADO por admin_id=${req.user.id}`);
   res.json({ ok: true });
-});
+}));
 
 module.exports = router;

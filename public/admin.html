@@ -139,6 +139,9 @@
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     let turnoActual = null;
 
+    // #4 — escapar HTML para prevenir XSS
+    const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
     // Verificar sesion activa con el servidor
     async function verificarSesion() {
       if (!token || user.rol !== 'admin') { localStorage.clear(); window.location.replace('/'); return false; }
@@ -198,11 +201,11 @@
             <thead><tr><th>Hora</th><th>Cliente</th><th>Vehículo</th><th>Descripción</th><th>Estado</th><th>Acciones</th></tr></thead>
             <tbody>${turnos.map(t => `
               <tr>
-                <td><strong>${t.hora}</strong></td>
-                <td>${t.nombre}<br><small style="color:#6c757d">${t.telefono || t.email}</small></td>
-                <td>${t.marca} ${t.modelo}<br><small><strong>${t.patente}</strong></small></td>
-                <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.descripcion}</td>
-                <td><span class="badge badge-${t.estado}">${estadoLabel(t.estado)}</span></td>
+                <td><strong>${esc(t.hora)}</strong></td>
+                <td>${esc(t.nombre)}<br><small style="color:#6c757d">${esc(t.telefono || t.email)}</small></td>
+                <td>${esc(t.marca)} ${esc(t.modelo)}<br><small><strong>${esc(t.patente)}</strong></small></td>
+                <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.descripcion)}</td>
+                <td><span class="badge badge-${esc(t.estado)}">${estadoLabel(t.estado)}</span></td>
                 <td>
                   <div class="actions">
                     <button class="btn btn-secondary btn-sm" onclick="abrirDetalle(${t.id})">Ver</button>
@@ -240,12 +243,12 @@
 
       document.getElementById('modalTurnoTitle').textContent = `Turno #${id} — ${turnoActual.patente}`;
       document.getElementById('modalTurnoInfo').innerHTML = `
-        <strong>👤 Cliente:</strong> ${turnoActual.nombre}<br>
-        <strong>📧 Email:</strong> ${turnoActual.email}<br>
-        <strong>📱 Teléfono:</strong> ${turnoActual.telefono || 'No registrado'}<br>
-        <strong>🚗 Vehículo:</strong> ${turnoActual.marca} ${turnoActual.modelo} (${turnoActual.patente})<br>
-        <strong>📅 Fecha:</strong> ${formatFecha(turnoActual.fecha)} a las ${turnoActual.hora}<br>
-        <strong>📝 Problema:</strong> ${turnoActual.descripcion}
+        <strong>👤 Cliente:</strong> ${esc(turnoActual.nombre)}<br>
+        <strong>📧 Email:</strong> ${esc(turnoActual.email)}<br>
+        <strong>📱 Teléfono:</strong> ${esc(turnoActual.telefono || 'No registrado')}<br>
+        <strong>🚗 Vehículo:</strong> ${esc(turnoActual.marca)} ${esc(turnoActual.modelo)} (${esc(turnoActual.patente)})<br>
+        <strong>📅 Fecha:</strong> ${formatFecha(turnoActual.fecha)} a las ${esc(turnoActual.hora)}<br>
+        <strong>📝 Problema:</strong> ${esc(turnoActual.descripcion)}
       `;
 
       document.getElementById('notasAdmin').value = turnoActual.notas_admin || '';
@@ -300,8 +303,8 @@
       container.innerHTML = trabajos.map(t => `
         <div class="trabajo-item">
           <div>
-            <strong>${t.descripcion}</strong>
-            <span class="badge badge-${t.estado}" style="margin-left:0.5rem">${estadoLabel(t.estado)}</span>
+            <strong>${esc(t.descripcion)}</strong>
+            <span class="badge badge-${esc(t.estado)}" style="margin-left:0.5rem">${estadoLabel(t.estado)}</span>
           </div>
           <div style="display:flex;align-items:center;gap:0.5rem">
             <strong>$${Number(t.costo).toLocaleString('es-AR')}</strong>
@@ -348,9 +351,9 @@
             <thead><tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Registrado</th><th>Estado</th><th>Acciones</th></tr></thead>
             <tbody>${clientes.map(c => `
               <tr style="opacity:${c.suspendido ? '0.6' : '1'}">
-                <td>${c.nombre}</td>
-                <td>${c.email}</td>
-                <td>${c.telefono || '-'}</td>
+                <td>${esc(c.nombre)}</td>
+                <td>${esc(c.email)}</td>
+                <td>${esc(c.telefono || '-')}</td>
                 <td>${formatFecha(c.created_at?.split('T')[0] || c.created_at?.split(' ')[0])}</td>
                 <td><span class="badge ${c.suspendido ? 'badge-cancelado' : 'badge-terminado'}">${c.suspendido ? 'Suspendido' : 'Activo'}</span></td>
                 <td>
