@@ -16,7 +16,6 @@
   </nav>
 
   <div class="admin-layout">
-    <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-item active" onclick="showSection('dashboard', this)">
         <span class="sidebar-icon">📊</span> Dashboard
@@ -29,42 +28,22 @@
       </div>
     </aside>
 
-    <!-- CONTENIDO -->
     <main class="main-content">
-
-      <!-- DASHBOARD -->
       <div id="section-dashboard">
         <div class="page-title">📊 Dashboard</div>
         <div class="stats-grid">
-          <div class="stat-card warning">
-            <div class="stat-number" id="statHoy">-</div>
-            <div class="stat-label">Turnos hoy</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-number" id="statPendientes">-</div>
-            <div class="stat-label">Pendientes</div>
-          </div>
-          <div class="stat-card info">
-            <div class="stat-number" id="statEnProceso">-</div>
-            <div class="stat-label">En proceso</div>
-          </div>
-          <div class="stat-card success">
-            <div class="stat-number" id="statTerminados">-</div>
-            <div class="stat-label">Terminados</div>
-          </div>
-          <div class="stat-card secondary">
-            <div class="stat-number" id="statClientes">-</div>
-            <div class="stat-label">Clientes</div>
-          </div>
+          <div class="stat-card warning"><div class="stat-number" id="statHoy">-</div><div class="stat-label">Turnos hoy</div></div>
+          <div class="stat-card"><div class="stat-number" id="statPendientes">-</div><div class="stat-label">Pendientes</div></div>
+          <div class="stat-card info"><div class="stat-number" id="statEnProceso">-</div><div class="stat-label">En proceso</div></div>
+          <div class="stat-card success"><div class="stat-number" id="statTerminados">-</div><div class="stat-label">Terminados</div></div>
+          <div class="stat-card secondary"><div class="stat-number" id="statClientes">-</div><div class="stat-label">Clientes</div></div>
         </div>
-
         <div class="card">
           <div class="card-title">📅 Turnos de hoy</div>
           <div id="turnosHoyList"></div>
         </div>
       </div>
 
-      <!-- TURNOS -->
       <div id="section-turnos" style="display:none">
         <div class="page-title">📅 Gestión de Turnos</div>
         <div class="filter-bar">
@@ -87,38 +66,29 @@
         <div id="turnosAdminList"></div>
       </div>
 
-      <!-- CLIENTES -->
       <div id="section-clientes" style="display:none">
         <div class="page-title">👥 Clientes</div>
         <div id="clientesList"></div>
       </div>
-
     </main>
   </div>
 
-  <!-- MODAL DETALLE TURNO -->
   <div class="modal-overlay" id="modalTurno">
     <div class="modal" style="max-width:620px">
       <div class="modal-header">
         <span class="modal-title" id="modalTurnoTitle">Detalle del Turno</span>
         <button class="modal-close" onclick="closeModal('modalTurno')">×</button>
       </div>
-
       <div id="modalTurnoInfo" style="margin-bottom:1.5rem;padding:1rem;background:#f8f9fa;border-radius:8px;font-size:0.9rem;line-height:1.8"></div>
-
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1.5rem" id="modalAcciones"></div>
-
       <div class="form-group">
         <label class="form-label">Notas para el cliente</label>
         <textarea id="notasAdmin" class="form-control" rows="2" placeholder="Ej: Necesitamos el vehículo 2 días más..."></textarea>
       </div>
       <button class="btn btn-secondary btn-sm" onclick="guardarNotas()">Guardar notas</button>
-
       <hr style="margin:1.5rem 0;border-color:#dee2e6">
-
       <div class="card-title">🔧 Trabajos realizados</div>
       <div id="trabajosList" style="margin-bottom:1rem"></div>
-
       <div style="display:flex;gap:0.5rem;align-items:flex-end">
         <div class="form-group" style="flex:1;margin:0">
           <input type="text" id="nuevoTrabajo" class="form-control" placeholder="Descripción del trabajo">
@@ -128,7 +98,6 @@
         </div>
         <button class="btn btn-primary btn-sm" onclick="agregarTrabajo()">+ Agregar</button>
       </div>
-
       <div id="totalCosto" style="text-align:right;font-weight:700;font-size:1.1rem;margin-top:1rem;color:#1d3557"></div>
     </div>
   </div>
@@ -149,13 +118,7 @@
       'Authorization': `Bearer ${token}`,
       'X-CSRF-Token': csrfToken
     });
-      if (!token || user.rol !== 'admin') { localStorage.clear(); window.location.replace('/'); return false; }
-      const res = await fetch(`${API}/admin/stats`, { headers: { 'Authorization': `Bearer ${token}` } });
-      if (res.status === 401 || res.status === 403) { localStorage.clear(); window.location.replace('/'); return false; }
-      return true;
-    }
 
-    // Verificar sesion activa con el servidor
     async function verificarSesion() {
       if (!token || user.rol !== 'admin') { localStorage.clear(); window.location.replace('/'); return false; }
       const res = await fetch(`${API}/admin/stats`, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -171,7 +134,6 @@
         if (res.status === 401) { localStorage.clear(); window.location.replace('/'); return null; }
         return res.json();
       } catch {
-        console.error('Error de red:', url);
         alert('Error de conexión. Verificá tu internet e intentá nuevamente.');
         return null;
       }
@@ -189,9 +151,8 @@
 
     function openModal(id) { document.getElementById(id).classList.add('open'); }
     function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-    function logout() { localStorage.clear(); window.location.href = '/'; }
+    function logout() { localStorage.clear(); window.location.replace('/'); }
 
-    // ── DASHBOARD ──
     async function cargarDashboard() {
       const stats = await apiFetch('/admin/stats');
       if (!stats) return;
@@ -200,7 +161,6 @@
       document.getElementById('statEnProceso').textContent = stats.enProceso;
       document.getElementById('statTerminados').textContent = stats.terminados;
       document.getElementById('statClientes').textContent = stats.clientes;
-
       const hoy = new Date().toISOString().split('T')[0];
       const turnos = await apiFetch(`/admin/turnos?fecha=${hoy}`);
       renderTurnosCompacto(turnos || [], 'turnosHoyList');
@@ -235,7 +195,6 @@
         </div>`;
     }
 
-    // ── TURNOS ──
     async function cargarTurnos() {
       const fecha = document.getElementById('filtroFecha').value;
       const estado = document.getElementById('filtroEstado').value;
@@ -252,12 +211,10 @@
       cargarTurnos();
     }
 
-    // ── DETALLE TURNO ──
     async function abrirDetalle(id) {
       const turnos = await apiFetch('/admin/turnos');
       turnoActual = turnos.find(t => t.id === id);
       if (!turnoActual) return;
-
       document.getElementById('modalTurnoTitle').textContent = `Turno #${id} — ${turnoActual.patente}`;
       document.getElementById('modalTurnoInfo').innerHTML = `
         <strong>👤 Cliente:</strong> ${esc(turnoActual.nombre)}<br>
@@ -267,9 +224,7 @@
         <strong>📅 Fecha:</strong> ${formatFecha(turnoActual.fecha)} a las ${esc(turnoActual.hora)}<br>
         <strong>📝 Problema:</strong> ${esc(turnoActual.descripcion)}
       `;
-
       document.getElementById('notasAdmin').value = turnoActual.notas_admin || '';
-
       const acciones = document.getElementById('modalAcciones');
       const estados = [
         { val: 'pendiente', label: '⏳ Pendiente', cls: 'btn-warning' },
@@ -278,22 +233,17 @@
         { val: 'cancelado', label: '❌ Cancelar', cls: 'btn-danger' },
       ];
       acciones.innerHTML = estados.map(e => `
-        <button class="btn ${e.cls} btn-sm ${turnoActual.estado === e.val ? 'active' : ''}" 
-          onclick="cambiarEstado('${e.val}')" 
+        <button class="btn ${e.cls} btn-sm" onclick="cambiarEstado('${e.val}')"
           style="${turnoActual.estado === e.val ? 'outline:3px solid #000;outline-offset:2px' : ''}">
           ${e.label}
         </button>`).join('') +
         `<a class="btn btn-whatsapp btn-sm" href="${whatsappLink(turnoActual)}" target="_blank" rel="noopener noreferrer">💬 WhatsApp</a>`;
-
       await cargarTrabajos();
       openModal('modalTurno');
     }
 
     async function cambiarEstado(estado) {
-      await apiFetch(`/admin/turnos/${turnoActual.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ estado })
-      });
+      await apiFetch(`/admin/turnos/${turnoActual.id}`, { method: 'PATCH', body: JSON.stringify({ estado }) });
       turnoActual.estado = estado;
       abrirDetalle(turnoActual.id);
       cargarDashboard();
@@ -301,14 +251,10 @@
 
     async function guardarNotas() {
       const notas_admin = document.getElementById('notasAdmin').value;
-      await apiFetch(`/admin/turnos/${turnoActual.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ notas_admin })
-      });
+      await apiFetch(`/admin/turnos/${turnoActual.id}`, { method: 'PATCH', body: JSON.stringify({ notas_admin }) });
       alert('✅ Notas guardadas');
     }
 
-    // ── TRABAJOS ──
     async function cargarTrabajos() {
       const trabajos = await apiFetch(`/admin/turnos/${turnoActual.id}/trabajos`);
       const container = document.getElementById('trabajosList');
@@ -328,7 +274,6 @@
             <button class="btn btn-danger btn-sm" onclick="eliminarTrabajo(${t.id})">✕</button>
           </div>
         </div>`).join('');
-
       const total = trabajos.reduce((s, t) => s + Number(t.costo), 0);
       document.getElementById('totalCosto').textContent = `Total: $${total.toLocaleString('es-AR')}`;
     }
@@ -337,7 +282,6 @@
       const descripcion = document.getElementById('nuevoTrabajo').value.trim();
       const costo = document.getElementById('nuevoCosto').value;
       if (!descripcion) return alert('Ingresá una descripción');
-
       await apiFetch(`/admin/turnos/${turnoActual.id}/trabajos`, {
         method: 'POST',
         body: JSON.stringify({ descripcion, costo: Number(costo) || 0 })
@@ -353,7 +297,6 @@
       cargarTrabajos();
     }
 
-    // ── CLIENTES ──
     async function cargarClientes() {
       const clientes = await apiFetch('/admin/clientes');
       if (!clientes) return;
@@ -377,7 +320,7 @@
                   <div class="actions">
                     ${c.telefono ? `<a class="btn btn-whatsapp btn-sm" href="https://wa.me/${limpiarTel(c.telefono)}?text=${encodeURIComponent('Hola ' + c.nombre + ', te contactamos desde el taller.')}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}
                     <button class="btn btn-warning btn-sm" onclick="suspenderCliente(${c.id}, ${c.suspendido})">${c.suspendido ? 'Reactivar' : 'Suspender'}</button>
-                    <button class="btn btn-danger btn-sm" onclick="eliminarCliente(${c.id}, '${c.nombre}')">Eliminar</button>
+                    <button class="btn btn-danger btn-sm" onclick="eliminarCliente(${c.id}, '${esc(c.nombre)}')">Eliminar</button>
                   </div>
                 </td>
               </tr>`).join('')}
@@ -387,8 +330,7 @@
     }
 
     async function suspenderCliente(id, suspendido) {
-      const accion = suspendido ? 'reactivar' : 'suspender';
-      if (!confirm(`¿Segúro que querés ${accion} esta cuenta?`)) return;
+      if (!confirm(`¿Seguro que querés ${suspendido ? 'reactivar' : 'suspender'} esta cuenta?`)) return;
       await apiFetch(`/admin/clientes/${id}/suspender`, { method: 'PATCH' });
       cargarClientes();
     }
@@ -399,7 +341,6 @@
       cargarClientes();
     }
 
-    // ── HELPERS ──
     function whatsappLink(turno) {
       const tel = limpiarTel(turno.telefono);
       if (!tel) return '#';
@@ -407,10 +348,7 @@
       return `https://wa.me/${tel}?text=${encodeURIComponent(msg)}`;
     }
 
-    function limpiarTel(tel) {
-      if (!tel) return '';
-      return tel.replace(/\D/g, '');
-    }
+    function limpiarTel(tel) { return tel ? tel.replace(/\D/g, '') : ''; }
 
     function formatFecha(fecha) {
       if (!fecha) return '-';
@@ -419,11 +357,9 @@
     }
 
     function estadoLabel(estado) {
-      const labels = { pendiente: 'Pendiente', en_proceso: 'En proceso', terminado: 'Terminado', cancelado: 'Cancelado' };
-      return labels[estado] || estado;
+      return { pendiente: 'Pendiente', en_proceso: 'En proceso', terminado: 'Terminado', cancelado: 'Cancelado' }[estado] || estado;
     }
 
-    // ── PUSH ADMIN ──
     async function registrarPushAdmin() {
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
       try {
@@ -435,9 +371,7 @@
           applicationServerKey: urlBase64ToUint8Array('BKD9-Xk7lp0ZeZwidkxG7mxO6bo_hByTwFbf9FRdxWeQBOgjfSRMlQlCrtRk0wR0s0po2njt2GlEp_40c7vBAEA')
         });
         await fetch(`${API}/auth/push-subscription`, {
-          method: 'POST',
-          headers: headers(),
-          body: JSON.stringify({ subscription: sub })
+          method: 'POST', headers: headers(), body: JSON.stringify({ subscription: sub })
         });
       } catch (e) { console.log('Push no disponible:', e.message); }
     }
@@ -449,7 +383,6 @@
       return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
     }
 
-    // Init
     verificarSesion().then(ok => { if (ok) { cargarDashboard(); registrarPushAdmin(); } });
   </script>
 </body>

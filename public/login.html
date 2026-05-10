@@ -33,12 +33,8 @@
           <label class="form-label">Contraseña</label>
           <input type="password" id="loginPassword" class="form-control" placeholder="••••••••">
         </div>
-        <button class="btn btn-primary btn-block" onclick="login()">
-          <span id="loginBtnText">Ingresar</span>
-        </button>
-
+        <button class="btn btn-primary btn-block" onclick="login()">Ingresar</button>
         <div class="divider">o continuá con</div>
-
         <button class="btn btn-google" onclick="loginGoogle()">
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="Google">
           Continuar con Google
@@ -65,16 +61,14 @@
           <input type="password" id="regPassword" class="form-control" placeholder="Mínimo 6 caracteres">
         </div>
         <button class="btn btn-primary btn-block" onclick="register()">Crear cuenta</button>
-
         <div class="divider">o continuá con</div>
-
         <button class="btn btn-google" onclick="loginGoogle()">
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="Google">
           Continuar con Google
         </button>
       </div>
 
-      <!-- COMPLETAR TELEFONO (Google sin teléfono) -->
+      <!-- COMPLETAR TELEFONO -->
       <div id="telefonoForm" style="display:none">
         <div class="alert alert-success" style="margin-bottom:1rem">✅ ¡Cuenta de Google verificada! Solo falta tu teléfono.</div>
         <div class="form-group">
@@ -87,10 +81,10 @@
     </div>
   </div>
 
-  <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script>
     const API = '/api';
+    let pendingGoogleData = null;
 
     function switchTab(tab) {
       document.querySelectorAll('.auth-tab').forEach((t, i) => t.classList.toggle('active', (i === 0) === (tab === 'login')));
@@ -114,7 +108,6 @@
       const email = document.getElementById('loginEmail').value.trim();
       const password = document.getElementById('loginPassword').value;
       if (!email || !password) return showAlert('Completá todos los campos');
-
       const res = await fetch(`${API}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -125,8 +118,6 @@
       saveSession(data);
     }
 
-    let pendingGoogleData = null;
-
     async function register() {
       const nombre = document.getElementById('regNombre').value.trim();
       const email = document.getElementById('regEmail').value.trim();
@@ -135,7 +126,6 @@
       if (!nombre || !email || !password) return showAlert('Completá los campos obligatorios');
       if (!telefono) return showAlert('El teléfono es obligatorio para poder contactarte');
       if (password.length < 6) return showAlert('La contraseña debe tener al menos 6 caracteres');
-
       const res = await fetch(`${API}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -152,28 +142,26 @@
         .then(({ googleClientId }) => {
           google.accounts.id.initialize({
             client_id: googleClientId,
-        callback: async (response) => {
-          const res = await fetch(`${API}/auth/google`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ credential: response.credential })
+            callback: async (response) => {
+              const res = await fetch(`${API}/auth/google`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ credential: response.credential })
+              });
+              const data = await res.json();
+              if (!res.ok) return showAlert(data.error);
+              if (data.sinTelefono) {
+                pendingGoogleData = data;
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('registerForm').style.display = 'none';
+                document.getElementById('telefonoForm').style.display = 'block';
+                document.querySelectorAll('.auth-tab').forEach(t => t.style.display = 'none');
+                return;
+              }
+              saveSession(data);
+            }
           });
-          const data = await res.json();
-          if (!res.ok) return showAlert(data.error);
-
-          // Si el usuario no tiene teléfono, pedirlo antes de continuar
-          if (data.sinTelefono) {
-            pendingGoogleData = data;
-            document.getElementById('loginForm').style.display = 'none';
-            document.getElementById('registerForm').style.display = 'none';
-            document.getElementById('telefonoForm').style.display = 'block';
-            document.querySelectorAll('.auth-tab').forEach(t => t.style.display = 'none');
-            return;
-          }
-          saveSession(data);
-        }
-      });
-      google.accounts.id.prompt();
+          google.accounts.id.prompt();
         })
         .catch(() => showAlert('Error al conectar con Google. Intentá nuevamente.'));
     }
@@ -181,7 +169,6 @@
     async function guardarTelefonoGoogle() {
       const telefono = document.getElementById('googleTelefono').value.trim();
       if (!telefono) return showAlert('El teléfono es obligatorio');
-
       const res = await fetch(`${API}/auth/update-telefono`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${pendingGoogleData.token}` },
@@ -191,11 +178,10 @@
       saveSession(pendingGoogleData);
     }
 
-    // Redirigir si ya está logueado (solo clientes, no admin)
+    // Si ya está logueado
     if (localStorage.getItem('token')) {
       const u = JSON.parse(localStorage.getItem('user') || '{}');
       if (u.rol === 'admin') {
-        // Admin ya logueado: mostrar opción de ir al panel o cerrar sesión
         document.getElementById('alertBox').innerHTML = `
           <div class="alert alert-success" style="text-align:center">
             Sesión activa como <strong>${u.nombre}</strong> (Admin)<br>
@@ -207,7 +193,6 @@
       }
     }
 
-    // Enter para login
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         const isLogin = document.getElementById('loginForm').style.display !== 'none';
