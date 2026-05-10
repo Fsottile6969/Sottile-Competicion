@@ -91,6 +91,8 @@ router.get('/mis-turnos', authMiddleware, asyncHandler(async (req, res) => {
 }));
 
 router.patch('/:id/cancelar', authMiddleware, asyncHandler(async (req, res) => {
+  if (!Number.isInteger(Number(req.params.id)) || Number(req.params.id) <= 0)
+    return res.status(400).json({ error: 'ID inválido' });
   const turno = await db.prepare('SELECT * FROM turnos WHERE id = ? AND usuario_id = ?').get(req.params.id, req.user.id);
   if (!turno) return res.status(404).json({ error: 'Turno no encontrado' });
   if (turno.estado !== 'pendiente') return res.status(400).json({ error: 'Solo se pueden cancelar turnos pendientes' });

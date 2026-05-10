@@ -155,9 +155,15 @@
     const headers = () => ({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` });
 
     async function apiFetch(url, opts = {}) {
-      const res = await fetch(API + url, { ...opts, headers: headers() });
-      if (res.status === 401) { localStorage.clear(); window.location.replace('/'); return null; }
-      return res.json();
+      try {
+        const res = await fetch(API + url, { ...opts, headers: headers() });
+        if (res.status === 401) { localStorage.clear(); window.location.replace('/'); return null; }
+        return res.json();
+      } catch {
+        console.error('Error de red:', url);
+        alert('Error de conexión. Verificá tu internet e intentá nuevamente.');
+        return null;
+      }
     }
 
     function showSection(name, el) {

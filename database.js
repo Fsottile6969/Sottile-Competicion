@@ -2,7 +2,15 @@ const { Pool } = require('pg');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  connectionTimeoutMillis: 5000,   // #4 timeout de conexión
+  idleTimeoutMillis: 30000,
+  max: 10
+});
+
+// #9 — log de errores de conexión inesperados
+pool.on('error', (err) => {
+  console.error('[DB] Error inesperado en cliente idle:', err.message);
 });
 
 const ready = pool.query(`
@@ -15,6 +23,7 @@ const ready = pool.query(`
     google_id TEXT UNIQUE,
     rol TEXT DEFAULT 'cliente',
     push_subscription TEXT,
+    suspendido BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
   CREATE TABLE IF NOT EXISTS vehiculos (
@@ -49,9 +58,12 @@ const ready = pool.query(`
   CREATE INDEX IF NOT EXISTS idx_vehiculos_usuario ON vehiculos(usuario_id);
   CREATE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios(email);
   ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS suspendido BOOLEAN DEFAULT false;
-`);
+`).catch(err => {
+  // #2 — error claro si la DB falla al iniciar
+  console.error('[DB] Error al inicializar tablas:', err.message);
+  process.exit(1);
+});
 
-// Convierte "WHERE campo = ?" a "WHERE campo = $1" automáticamente
 function toPositional(sql) {
   let i = 0;
   return sql.replace(/\?/g, () => `$${++i}`);
@@ -76,6 +88,11 @@ const db = {
         return res.rows;
       }
     };
+  },
+
+  // #3 — exponer pool directamente para queries complejas en admin
+  query(...args) {
+    return pool.query(...args);
   },
 
   async exec(sql) {

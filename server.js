@@ -2,7 +2,9 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const compression = require('compression'); // #5
 const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const { db } = require('./database');
@@ -15,8 +17,22 @@ if (process.env.ENCRYPTION_KEY.length !== 64) { console.error('❌ ENCRYPTION_KE
 
 const app = express();
 
-// Seguridad HTTP headers
-app.use(helmet({ contentSecurityPolicy: false }));
+// Seguridad HTTP headers — #15 CSP habilitado
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'accounts.google.com', 'https://accounts.google.com'],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https://www.gstatic.com'],
+      connectSrc: ["'self'"],
+      frameSrc: ['accounts.google.com'],
+    }
+  }
+}));
+
+// #5 — compresion HTTP
+app.use(compression());
 
 // CORS restringido
 const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -44,17 +60,41 @@ app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, l
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: { error: 'Demasiados intentos, esperá 15 minutos.' } });
 
 app.use(express.json({ limit: '10kb' }));
+
+// #10 — validar Content-Type en requests con body
+app.use((req, res, next) => {
+  if (['POST','PATCH'].includes(req.method) && req.headers['content-type'] && !req.headers['content-type'].includes('application/json')) {
+    return res.status(415).json({ error: 'Content-Type debe ser application/json' });
+  }
+  next();
+});
+
+// #16 — X-Request-ID para correlacionar logs
+app.use((req, res, next) => {
+  req.requestId = crypto.randomUUID();
+  res.set('X-Request-ID', req.requestId);
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/api/ping', (req, res) => res.json({ ok: true }));
+// #12 — health check real que verifica la DB
+app.get('/api/ping', async (req, res) => {
+  try {
+    await db.query('SELECT 1');
+    res.json({ ok: true, db: 'connected' });
+  } catch {
+    res.status(503).json({ ok: false, db: 'disconnected' });
+  }
+});
 
 app.use('/api/auth', authLimiter, require('./routes/auth'));
 app.use('/api/turnos', require('./routes/turnos'));
 app.use('/api/admin', require('./routes/admin'));
 
-// Manejo de errores global
+// Manejo de errores global — #7 logs estructurados
 app.use((err, req, res, next) => {
-  console.error(err.message);
+  console.error(`[ERROR] requestId=${req.requestId} method=${req.method} url=${req.url} msg=${err.message}`);
   res.status(err.status || 500).json({ error: 'Error interno del servidor' });
 });
 

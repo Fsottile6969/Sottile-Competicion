@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { db, pool } = require('../database');
+const { db } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware');
 const { enviarNotificacion } = require('../notifications');
 const { decrypt } = require('../crypto');
@@ -14,7 +14,10 @@ function decryptTelefono(rows) {
   return rows.map(r => ({ ...r, telefono: decrypt(r.telefono) }));
 }
 
-// #12 — paginación en listado de turnos
+// #6 — validar que un param es entero positivo
+const validId = (id) => Number.isInteger(Number(id)) && Number(id) > 0;
+
+// #3 — usar db.query en lugar de pool directamente
 router.get('/turnos', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
   const { fecha, estado, page = 1 } = req.query;
   const limit = 50;
@@ -31,11 +34,12 @@ router.get('/turnos', authMiddleware, adminMiddleware, asyncHandler(async (req, 
   if (fecha) { params.push(fecha); query += ` AND t.fecha = $${params.length}`; }
   if (estado && ESTADOS_VALIDOS.includes(estado)) { params.push(estado); query += ` AND t.estado = $${params.length}`; }
   query += ` ORDER BY t.fecha ASC, t.hora ASC LIMIT ${limit} OFFSET ${offset}`;
-  const { rows } = await pool.query(query, params);
+  const { rows } = await db.query(query, params);
   res.json(decryptTelefono(rows));
 }));
 
 router.patch('/turnos/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
+  if (!validId(req.params.id)) return res.status(400).json({ error: 'ID inválido' });
   const { estado, notas_admin } = req.body;
 
   // #1 — validar estado contra lista permitida
@@ -67,10 +71,12 @@ router.patch('/turnos/:id', authMiddleware, adminMiddleware, asyncHandler(async 
 }));
 
 router.get('/turnos/:id/trabajos', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
+  if (!validId(req.params.id)) return res.status(400).json({ error: 'ID inválido' });
   res.json(await db.prepare('SELECT * FROM trabajos WHERE turno_id = ?').all(req.params.id));
 }));
 
 router.post('/turnos/:id/trabajos', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
+  if (!validId(req.params.id)) return res.status(400).json({ error: 'ID inválido' });
   const descripcion = (req.body.descripcion || '').toString().trim().slice(0, 500);
   const costo = parseFloat(req.body.costo) || 0;
   if (!descripcion) return res.status(400).json({ error: 'Descripción requerida' });
@@ -82,6 +88,7 @@ router.post('/turnos/:id/trabajos', authMiddleware, adminMiddleware, asyncHandle
 }));
 
 router.patch('/trabajos/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
+  if (!validId(req.params.id)) return res.status(400).json({ error: 'ID inválido' });
   const trabajo = await db.prepare('SELECT * FROM trabajos WHERE id = ?').get(req.params.id);
   if (!trabajo) return res.status(404).json({ error: 'Trabajo no encontrado' });
   const descripcion = (req.body.descripcion || trabajo.descripcion).toString().trim().slice(0, 500);
@@ -93,6 +100,7 @@ router.patch('/trabajos/:id', authMiddleware, adminMiddleware, asyncHandler(asyn
 }));
 
 router.delete('/trabajos/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
+  if (!validId(req.params.id)) return res.status(400).json({ error: 'ID inválido' });
   await db.prepare('DELETE FROM trabajos WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 }));
@@ -123,6 +131,7 @@ router.get('/clientes', authMiddleware, adminMiddleware, asyncHandler(async (req
 }));
 
 router.patch('/clientes/:id/suspender', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
+  if (!validId(req.params.id)) return res.status(400).json({ error: 'ID inválido' });
   const cliente = await db.prepare("SELECT id, rol FROM usuarios WHERE id = ? AND rol = 'cliente'").get(req.params.id);
   if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
   await db.prepare('UPDATE usuarios SET suspendido = NOT COALESCE(suspendido, false) WHERE id = ?').run(req.params.id);
@@ -132,6 +141,7 @@ router.patch('/clientes/:id/suspender', authMiddleware, adminMiddleware, asyncHa
 }));
 
 router.delete('/clientes/:id', authMiddleware, adminMiddleware, asyncHandler(async (req, res) => {
+  if (!validId(req.params.id)) return res.status(400).json({ error: 'ID inválido' });
   const cliente = await db.prepare("SELECT id, rol FROM usuarios WHERE id = ? AND rol = 'cliente'").get(req.params.id);
   if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
 
