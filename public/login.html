@@ -35,7 +35,6 @@
         </div>
         <button class="btn btn-primary btn-block" onclick="login()">Ingresar</button>
         <div class="divider">o continuá con</div>
-        <div class="divider">o continuá con</div>
         <div id="googleBtnLogin" style="display:flex;justify-content:center"></div>
       </div>
 
@@ -76,7 +75,7 @@
     </div>
   </div>
 
-  <script src="https://accounts.google.com/gsi/client" async defer onload="window.onGoogleLibraryLoad && window.onGoogleLibraryLoad()"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script>
     const API = '/api';
     let pendingGoogleData = null;
@@ -150,26 +149,31 @@
       saveSession(data);
     }
 
+    // Verificar si venimos del callback de Google redirect
+    const urlParams = new URLSearchParams(window.location.search);
+    const googleCredential = urlParams.get('g_credential');
+    if (googleCredential) {
+      handleGoogleCredential({ credential: googleCredential });
+    }
+
     function initGoogleButtons(googleClientId) {
       google.accounts.id.initialize({
         client_id: googleClientId,
         callback: handleGoogleCredential,
-        ux_mode: 'popup'
+        ux_mode: 'redirect',
+        login_uri: window.location.origin + '/auth/google/callback'
       });
       const cfg = { theme: 'outline', size: 'large', width: 300, locale: 'es' };
       google.accounts.id.renderButton(document.getElementById('googleBtnLogin'), cfg);
       google.accounts.id.renderButton(document.getElementById('googleBtnRegister'), cfg);
     }
 
-    // Inicializar botones Google cuando el script cargue
-    window.onGoogleLibraryLoad = function() {
+    window.addEventListener('load', () => {
       fetch('/api/auth/config')
         .then(r => r.json())
-        .then(({ googleClientId }) => {
-          if (googleClientId) initGoogleButtons(googleClientId);
-        })
+        .then(({ googleClientId }) => { if (googleClientId) initGoogleButtons(googleClientId); })
         .catch(() => {});
-    };
+    });
 
     async function guardarTelefonoGoogle() {
       const telefono = document.getElementById('googleTelefono').value.trim();
@@ -183,7 +187,6 @@
       saveSession(pendingGoogleData);
     }
 
-    // Si ya está logueado, redirigir directamente
     if (localStorage.getItem('token')) {
       const u = JSON.parse(localStorage.getItem('user') || '{}');
       window.location.href = u.rol === 'admin' ? '/admin' : '/cliente';

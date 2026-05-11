@@ -142,6 +142,21 @@ const noCache = (req, res, next) => {
   next();
 };
 
+app.get('/auth/google/callback', (req, res) => res.sendFile(path.join(__dirname, 'public', 'google-callback.html')));
+app.post('/auth/google/callback', express.urlencoded({ extended: false }), async (req, res) => {
+  const credential = req.body.credential;
+  if (!credential) return res.redirect('/login');
+  // Redirigir al frontend con el credential como query param (corto plazo, seguro porque es un JWT de Google)
+  res.redirect(`/google-callback?credential=${encodeURIComponent(credential)}`);
+});
+
+// Google OAuth redirect callback
+app.post('/auth/google/callback', express.urlencoded({ extended: false }), (req, res) => {
+  const credential = req.body.credential;
+  if (!credential) return res.redirect('/login');
+  res.redirect(`/login?g_credential=${encodeURIComponent(credential)}`);
+});
+
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'landing.html')));
 app.get('/login', noCache, (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('/admin', noCache, (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
