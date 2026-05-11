@@ -92,7 +92,7 @@ app.use(express.json({ limit: '10kb' }));
 app.use((req, res, next) => {
   const method = String(req.method);
   const contentType = String(req.headers['content-type'] || '');
-  if (['POST','PATCH'].includes(method) && contentType && !contentType.includes('application/json')) {
+  if (['POST','PATCH'].includes(method) && contentType && !contentType.includes('application/json') && req.path !== '/auth/google/callback') {
     return res.status(415).json({ error: 'Content-Type debe ser application/json' });
   }
   next();
@@ -141,14 +141,6 @@ const noCache = (req, res, next) => {
   res.set('Expires', '0');
   next();
 };
-
-app.get('/auth/google/callback', (req, res) => res.sendFile(path.join(__dirname, 'public', 'google-callback.html')));
-app.post('/auth/google/callback', express.urlencoded({ extended: false }), async (req, res) => {
-  const credential = req.body.credential;
-  if (!credential) return res.redirect('/login');
-  // Redirigir al frontend con el credential como query param (corto plazo, seguro porque es un JWT de Google)
-  res.redirect(`/google-callback?credential=${encodeURIComponent(credential)}`);
-});
 
 // Google OAuth redirect callback
 app.post('/auth/google/callback', express.urlencoded({ extended: false }), (req, res) => {
