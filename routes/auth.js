@@ -80,7 +80,8 @@ router.post('/google', asyncHandler(async (req, res) => {
       audience: process.env.GOOGLE_CLIENT_ID
     });
     payload = ticket.getPayload();
-  } catch {
+  } catch (e) {
+    console.error('[GOOGLE AUTH ERROR]', e.message);
     return res.status(401).json({ error: 'Token de Google inválido' });
   }
 
