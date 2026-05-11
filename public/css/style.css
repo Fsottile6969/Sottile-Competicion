@@ -318,6 +318,28 @@ tr:hover td { background: #f8f9fa; }
   .auth-card { padding: 1.5rem; }
 }
 
+/* ── CHECKLIST TRABAJOS ── */
+.trabajos-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: var(--transition);
+  background: white;
+}
+.checklist-item:hover { border-color: var(--accent); background: #f0f7ff; }
+.checklist-item input[type=checkbox] { accent-color: var(--primary); width: 15px; height: 15px; cursor: pointer; }
+
 /* ── LOADING ── */
 .spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

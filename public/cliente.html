@@ -8,7 +8,7 @@
 </head>
 <body>
   <nav class="navbar">
-    <div class="navbar-brand">🔧 Sottile-<span>Competicion</span></div>
+    <div class="navbar-brand" onclick="location.reload()" style="cursor:pointer">🔧 Sottile-<span>Competicion</span></div>
     <div class="navbar-actions">
       <span class="navbar-user" id="navUser"></span>
       <button class="btn-logout" onclick="logout()">Salir</button>
@@ -47,8 +47,10 @@
           <div class="horarios-grid" id="horariosGrid"></div>
         </div>
         <div class="form-group">
-          <label class="form-label">Descripción del problema</label>
-          <textarea id="resDescripcion" class="form-control" rows="3" placeholder="Ej: Cambio de aceite, revisión de frenos..."></textarea>
+          <label class="form-label">Trabajos a realizar</label>
+          <div class="trabajos-checklist" id="trabajosChecklist"></div>
+          <label class="form-label" style="margin-top:0.75rem">Aclaraciones adicionales</label>
+          <textarea id="resDescripcion" class="form-control" rows="2" placeholder="Ej: el ruido aparece al frenar en curva..."></textarea>
         </div>
         <button class="btn btn-primary" onclick="reservarTurno()">Confirmar reserva</button>
       </div>
@@ -72,11 +74,15 @@
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Marca</label>
-          <input type="text" id="vMarca" class="form-control" placeholder="Toyota">
+          <select id="vMarca" class="form-control" onchange="actualizarModelos()">
+            <option value="">Seleccioná marca</option>
+          </select>
         </div>
         <div class="form-group">
           <label class="form-label">Modelo</label>
-          <input type="text" id="vModelo" class="form-control" placeholder="Corolla">
+          <select id="vModelo" class="form-control">
+            <option value="">Seleccioná modelo</option>
+          </select>
         </div>
       </div>
       <div class="form-row">
@@ -94,6 +100,50 @@
   </div>
 
   <script>
+    const MARCAS_MODELOS = {
+      'Chevrolet': ['Agile','Captiva','Corsa','Cruze','Equinox','Montana','Onix','Prisma','S10','Spin','Tracker'],
+      'Citroën': ['Berlingo','C3','C4','C4 Cactus','C5','Jumper','Jumpy','Xsara'],
+      'Fiat': ['Argo','Bravo','Cronos','Doblò','Ducato','Fiorino','Mobi','Palio','Punto','Siena','Strada','Toro'],
+      'Ford': ['EcoSport','Edge','Escape','Explorer','F-100','F-150','Fiesta','Focus','Fusion','Ka','Kuga','Mondeo','Mustang','Ranger','Territory'],
+      'Honda': ['Accord','City','Civic','CR-V','Fit','HR-V','Jazz','WR-V'],
+      'Hyundai': ['Accent','Creta','Elantra','Getz','i10','i20','i30','Santa Fe','Sonata','Tucson'],
+      'Jeep': ['Cherokee','Compass','Grand Cherokee','Renegade','Wrangler'],
+      'Kia': ['Carnival','Cerato','Picanto','Rio','Seltos','Sorento','Sportage','Stinger'],
+      'Mazda': ['2','3','6','CX-3','CX-5','CX-9','MX-5'],
+      'Mercedes-Benz': ['A 200','C 200','C 300','E 200','GLA','GLC','GLE','Sprinter','Vito'],
+      'Mitsubishi': ['ASX','Eclipse Cross','L200','Lancer','Outlander','Pajero'],
+      'Nissan': ['Frontier','Kicks','March','Murano','Note','Pathfinder','Sentra','Tiida','X-Trail'],
+      'Peugeot': ['2008','207','208','3008','301','308','408','5008','Expert','Partner'],
+      'Renault': ['Captur','Clio','Duster','Fluence','Kangoo','Koleos','Logan','Master','Megane','Oroch','Sandero','Symbol'],
+      'Subaru': ['Forester','Impreza','Legacy','Outback','XV'],
+      'Suzuki': ['Baleno','Ignis','Jimny','S-Cross','Swift','Vitara'],
+      'Toyota': ['Camry','Corolla','Etios','Fortuner','Hilux','Land Cruiser','Prius','RAV4','SW4','Yaris'],
+      'Volkswagen': ['Amarok','Fox','Gol','Golf','Jetta','Passat','Polo','Saveiro','T-Cross','Taos','Tiguan','Touareg','Vento','Virtus'],
+      'Volvo': ['S60','S90','V40','V60','XC40','XC60','XC90'],
+    };
+
+    const TRABAJOS_COMUNES = [
+      'Cambio de aceite y filtro',
+      'Cambio de filtro de aire',
+      'Cambio de filtro de combustible',
+      'Revisión de frenos',
+      'Cambio de pastillas de freno',
+      'Cambio de discos de freno',
+      'Alineación y balanceo',
+      'Cambio de neumáticos',
+      'Revisión de suspensión',
+      'Cambio de amortiguadores',
+      'Revisión eléctrica',
+      'Cambio de batería',
+      'Revisión de correa de distribución',
+      'Cambio de correa de distribución',
+      'Revisión de sistema de refrigeración',
+      'Cambio de líquido de frenos',
+      'Cambio de bujías',
+      'Diagnóstico computarizado',
+      'Revisión general',
+    ];
+
     const API = '/api';
     const token = localStorage.getItem('token');
     const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -209,11 +259,15 @@
     async function reservarTurno() {
       const vehiculo_id = document.getElementById('resVehiculo').value;
       const fecha = document.getElementById('resFecha').value;
-      const descripcion = document.getElementById('resDescripcion').value.trim();
+      const aclaraciones = document.getElementById('resDescripcion').value.trim();
+      const seleccionados = [...document.querySelectorAll('#trabajosChecklist input:checked')].map(c => c.value);
       if (!vehiculo_id) return alert('Seleccioná un vehículo');
       if (!fecha) return alert('Seleccioná una fecha');
       if (!horaSeleccionada) return alert('Seleccioná un horario');
-      if (!descripcion) return alert('Describí el problema');
+      if (!seleccionados.length && !aclaraciones) return alert('Seleccioná al menos un trabajo o escribiá una descripción');
+      const descripcion = seleccionados.length
+        ? seleccionados.join(', ') + (aclaraciones ? '. ' + aclaraciones : '')
+        : aclaraciones;
       const res = await apiFetch('/turnos', {
         method: 'POST',
         body: JSON.stringify({ vehiculo_id, fecha, hora: horaSeleccionada, descripcion })
@@ -249,8 +303,8 @@
     }
 
     async function agregarVehiculo() {
-      const marca = document.getElementById('vMarca').value.trim();
-      const modelo = document.getElementById('vModelo').value.trim();
+      const marca = document.getElementById('vMarca').value;
+      const modelo = document.getElementById('vModelo').value;
       const anio = document.getElementById('vAnio').value;
       const patente = document.getElementById('vPatente').value.trim().toUpperCase();
       if (!marca || !modelo || !patente) {
@@ -267,7 +321,9 @@
       }
       closeModal('modalVehiculo');
       document.getElementById('vehiculoAlert').innerHTML = '';
-      ['vMarca','vModelo','vAnio','vPatente'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('vMarca').value = '';
+      document.getElementById('vModelo').innerHTML = '<option value="">Seleccioná modelo</option>';
+      ['vAnio','vPatente'].forEach(id => document.getElementById(id).value = '');
       cargarVehiculos();
       cargarVehiculosSelect();
     }
@@ -307,7 +363,27 @@
       return labels[estado] || estado;
     }
 
-    verificarSesion().then(ok => { if (ok) { cargarTurnos(); registrarPush(); } });
+    function inicializarMarcas() {
+      const sel = document.getElementById('vMarca');
+      Object.keys(MARCAS_MODELOS).sort().forEach(m => sel.innerHTML += `<option value="${m}">${m}</option>`);
+    }
+
+    function actualizarModelos() {
+      const marca = document.getElementById('vMarca').value;
+      const sel = document.getElementById('vModelo');
+      sel.innerHTML = '<option value="">Seleccioná modelo</option>';
+      if (marca && MARCAS_MODELOS[marca]) {
+        MARCAS_MODELOS[marca].forEach(m => sel.innerHTML += `<option value="${m}">${m}</option>`);
+      }
+    }
+
+    function inicializarChecklist() {
+      document.getElementById('trabajosChecklist').innerHTML = TRABAJOS_COMUNES.map(t =>
+        `<label class="checklist-item"><input type="checkbox" value="${esc(t)}"> ${esc(t)}</label>`
+      ).join('');
+    }
+
+    verificarSesion().then(ok => { if (ok) { cargarTurnos(); registrarPush(); inicializarMarcas(); inicializarChecklist(); } });
   </script>
 </body>
 </html>
