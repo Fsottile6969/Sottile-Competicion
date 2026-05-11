@@ -72,7 +72,7 @@ app.get('/api/csrf-token', (req, res) => {
 
 const csrfMiddleware = (req, res, next) => {
   if (!['POST','PATCH','DELETE'].includes(String(req.method))) return next();
-  const exemptPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/google', '/api/auth/update-telefono', '/api/auth/push-subscription'];
+  const exemptPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/google', '/api/auth/update-telefono', '/api/auth/push-subscription', '/auth/google/callback'];
   if (exemptPaths.some(p => req.path === p || req.originalUrl.startsWith(p))) return next();
   const token = req.headers['x-csrf-token'];
   const entry = token ? csrfTokens.get(String(token)) : null;
