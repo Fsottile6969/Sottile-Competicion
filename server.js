@@ -39,11 +39,15 @@ app.use(compression());
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
   : ['http://localhost:3000'];
-app.use(cors({
-  origin: (origin, cb) => (!origin || allowedOrigins.includes(origin) ? cb(null, true) : cb(new Error('CORS no permitido'))),
-  methods: ['GET','POST','PATCH','DELETE'],
-  allowedHeaders: ['Content-Type','Authorization']
-}));
+app.use((req, res, next) => {
+  // El callback de Google no tiene Origin header, excluirlo del CORS
+  if (req.path === '/auth/google/callback') return next();
+  cors({
+    origin: (origin, cb) => (!origin || allowedOrigins.includes(origin) ? cb(null, true) : cb(new Error('CORS no permitido'))),
+    methods: ['GET','POST','PATCH','DELETE'],
+    allowedHeaders: ['Content-Type','Authorization']
+  })(req, res, next);
+});
 
 // CWE-601 — URL redirect seguro, solo permite mismo host
 app.use((req, res, next) => {
