@@ -22,9 +22,10 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-  // CWE-918 — solo procesar requests al mismo origen
   if (url.origin !== ALLOWED_ORIGIN) return;
   if (url.pathname.startsWith('/api/')) return;
+  if (event.request.method !== 'GET') return;
+  if (url.pathname === '/auth/google/callback') return;
 
   event.respondWith(
     fetch(event.request)
